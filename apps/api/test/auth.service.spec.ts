@@ -31,12 +31,12 @@ describe('AuthService', () => {
 
   it('autentica credenciais válidas', async () => {
     const passwordHash = await argon2.hash('senha-segura'); users.findUnique.mockResolvedValue({ ...user, passwordHash });
-    await expect(service.login({ email: user.email, password: 'senha-segura', confirmPassword: 'senha-segura' })).resolves.toMatchObject({ user: { email: user.email }, token: 'signed-token' });
+    await expect(service.login({ email: user.email, password: 'senha-segura' })).resolves.toMatchObject({ user: { email: user.email }, token: 'signed-token' });
   });
 
-  it.each([['senha incorreta', { ...user, passwordHash: await argon2.hash('outra-senha') }], ['usuário inexistente', null]])('rejeita %s com mensagem genérica', async (_, found) => {
-    users.findUnique.mockResolvedValue(found);
-    await expect(service.login({ email: user.email, password: 'senha-segura', confirmPassword: 'senha-segura' })).rejects.toMatchObject({ response: { message: 'E-mail ou senha inválidos.' } });
+  it.each([['senha incorreta', { ...user, passwordHash: 'hash-invalido' }], ['usuário inexistente', null]])('rejeita %s com mensagem genérica', async (_, found) => {
+    users.findUnique.mockResolvedValue(found ? { ...found, passwordHash: await argon2.hash('outra-senha') } : null);
+    await expect(service.login({ email: user.email, password: 'senha-segura' })).rejects.toMatchObject({ response: { message: 'E-mail ou senha inválidos.' } });
   });
 
   it('valida a versão da sessão e invalida no logout', async () => {

@@ -22,6 +22,31 @@ enum StudentStatus {
   INACTIVE
 }
 
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Driver {
+  id               String       @id @default(cuid())
+  name             String
+  document         String       @unique
+  phone            String
+  email            String?
+  birthDate        DateTime?
+  licenseNumber    String       @unique
+  licenseCategory  String
+  licenseExpiresAt DateTime
+  status           DriverStatus @default(ACTIVE)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@index([licenseExpiresAt])
+}
+
 enum GuardianRelationship {
   MOTHER
   FATHER
