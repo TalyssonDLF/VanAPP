@@ -15,9 +15,9 @@ describe('AuthService', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('cadastra usuário, normaliza o e-mail e armazena hash Argon2id', async () => {
-    users.create.mockImplementation(async ({ data }: { data: typeof user }) => ({ ...user, ...data }));
+    users.create.mockImplementation(({ data }: { data: typeof user }) => ({ ...user, ...data }));
     const result = await service.register({ name: ' João da Silva ', email: 'JOAO@EXAMPLE.COM', password: 'senha-segura', confirmPassword: 'senha-segura' });
-    const data = users.create.mock.calls[0][0].data as typeof user;
+    const calls=users.create.mock.calls as unknown as Array<[{data:typeof user}]>; const data=calls[0][0].data;
     expect(data.email).toBe('joao@example.com');
     expect(data.passwordHash).not.toBe('senha-segura');
     expect(await argon2.verify(data.passwordHash, 'senha-segura')).toBe(true);
@@ -31,12 +31,12 @@ describe('AuthService', () => {
 
   it('autentica credenciais válidas', async () => {
     const passwordHash = await argon2.hash('senha-segura'); users.findUnique.mockResolvedValue({ ...user, passwordHash });
-    await expect(service.login({ email: user.email, password: 'senha-segura', confirmPassword: 'senha-segura' })).resolves.toMatchObject({ user: { email: user.email }, token: 'signed-token' });
+    await expect(service.login({ email: user.email, password: 'senha-segura' })).resolves.toMatchObject({ user: { email: user.email }, token: 'signed-token' });
   });
 
-  it.each([['senha incorreta', { ...user, passwordHash: await argon2.hash('outra-senha') }], ['usuário inexistente', null]])('rejeita %s com mensagem genérica', async (_, found) => {
-    users.findUnique.mockResolvedValue(found);
-    await expect(service.login({ email: user.email, password: 'senha-segura', confirmPassword: 'senha-segura' })).rejects.toMatchObject({ response: { message: 'E-mail ou senha inválidos.' } });
+  it.each([['senha incorreta', { ...user, passwordHash: 'hash-inválido' }], ['usuário inexistente', null]])('rejeita %s com mensagem genérica', async (_, found) => {
+    users.findUnique.mockResolvedValue(found ? { ...found, passwordHash: await argon2.hash('outra-senha') } : null);
+    await expect(service.login({ email: user.email, password: 'senha-segura' })).rejects.toMatchObject({ response: { message: 'E-mail ou senha inválidos.' } });
   });
 
   it('valida a versão da sessão e invalida no logout', async () => {
