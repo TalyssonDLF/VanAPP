@@ -4,6 +4,9 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 
+const defaultFrontendOrigins =
+  "http://localhost:5173,https://vanapp-front.onrender.com";
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -20,7 +23,7 @@ async function bootstrap() {
   const configuredOrigins = (
     process.env.FRONTEND_URLS ??
     process.env.FRONTEND_URL ??
-    "http://localhost:5173"
+    defaultFrontendOrigins
   )
     .split(",")
     .map((origin) => origin.trim())
