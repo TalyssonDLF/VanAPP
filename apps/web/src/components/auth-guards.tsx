@@ -1,0 +1,4 @@
+import { Navigate,Outlet,useLocation } from 'react-router-dom'; import { useAuth } from '@/contexts/auth-context'; import { Skeleton } from '@/components/ui/skeleton';
+function Loading(){return <div className="flex min-h-screen items-center justify-center" aria-label="Carregando sessão"><div className="w-72 space-y-3"><Skeleton className="h-7 w-40"/><Skeleton className="h-10 w-full"/><Skeleton className="h-10 w-full"/></div></div>}
+export function PrivateRoute(){const{isLoading,isAuthenticated}=useAuth();const location=useLocation();if(isLoading)return <Loading/>;return isAuthenticated?<Outlet/>:<Navigate to="/login" replace state={{from:location}}/>}
+export function PublicRoute(){const{isLoading,isAuthenticated}=useAuth();if(isLoading)return <Loading/>;return isAuthenticated?<Navigate to="/dashboard" replace/>:<Outlet/>}

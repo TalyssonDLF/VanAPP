@@ -1,0 +1,1 @@
+import * as AvatarPrimitive from '@radix-ui/react-avatar'; export const Avatar=AvatarPrimitive.Root; export function AvatarFallback({children}:{children:React.ReactNode}){return <AvatarPrimitive.Fallback className="flex size-8 items-center justify-center rounded-full bg-neutral-200 text-xs font-medium">{children}</AvatarPrimitive.Fallback>}
