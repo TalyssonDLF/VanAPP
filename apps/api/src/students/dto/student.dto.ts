@@ -14,7 +14,6 @@ export class CreateStudentDto {
   @Transform(({ value }) => digits(emptyToUndefined(value))) @IsOptional() @IsString() @Length(11, 11) @IsCpf() document?: string;
   @IsOptional() @IsEnum(StudentStatus) status: StudentStatus = StudentStatus.ACTIVE;
   @Transform(({ value }) => emptyToUndefined(value)) @IsOptional() @IsString() @MaxLength(2000) notes?: string;
-  @Transform(({ value }) => emptyToUndefined(value)) @IsOptional() @IsString() @MinLength(1) schoolId?: string;
   @IsOptional() @IsArray() @ArrayUnique((item: StudentGuardianDto) => item.guardianId, { message: 'responsáveis não podem ser duplicados' }) @ValidateNested({ each: true }) @Type(() => StudentGuardianDto) guardians: StudentGuardianDto[] = [];
 }
 export class UpdateStudentDto {
@@ -23,6 +22,5 @@ export class UpdateStudentDto {
   @Transform(({ value }) => digits(emptyToUndefined(value))) @IsOptional() @IsString() @Length(11, 11) @IsCpf() document?: string;
   @IsOptional() @IsEnum(StudentStatus) status?: StudentStatus;
   @Transform(({ value }) => emptyToUndefined(value)) @IsOptional() @IsString() @MaxLength(2000) notes?: string;
-  @IsOptional() @IsString() @MinLength(1) schoolId?: string | null;
   @IsOptional() @IsArray() @ArrayUnique((item: StudentGuardianDto) => item.guardianId, { message: 'responsáveis não podem ser duplicados' }) @ValidateNested({ each: true }) @Type(() => StudentGuardianDto) guardians?: StudentGuardianDto[];
 }

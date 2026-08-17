@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStudentDto, StudentGuardianDto, StudentQueryDto, UpdateStudentDto } from './dto/student.dto';
 
-const studentSelect = { id: true, name: true, birthDate: true, document: true, status: true, notes: true, createdAt: true, updatedAt: true, schoolId:true, school:{select:{id:true,name:true,status:true,city:true,state:true}} } satisfies Prisma.StudentSelect;
+const studentSelect = { id: true, name: true, birthDate: true, document: true, status: true, notes: true, createdAt: true, updatedAt: true } satisfies Prisma.StudentSelect;
 @Injectable()
 export class StudentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -12,15 +12,13 @@ export class StudentsService {
     const count = await this.prisma.guardian.count({ where: { id: { in: guardians.map((item) => item.guardianId) } } });
     if (count !== guardians.length) throw new BadRequestException('Um ou mais responsáveis não existem.');
   }
-  private async ensureActiveSchool(schoolId?: string | null) { if(!schoolId)return;const school=await this.prisma.school.findUnique({where:{id:schoolId},select:{status:true}});if(!school)throw new BadRequestException('Escola não encontrada.');if(school.status!=='ACTIVE')throw new BadRequestException('Não é possível vincular um aluno a uma escola inativa.'); }
   private conflict(error: unknown): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('Já existe um aluno com este documento.');
     throw error;
   }
   async create(dto: CreateStudentDto) {
     await this.ensureGuardians(dto.guardians);
-    await this.ensureActiveSchool(dto.schoolId);
-    try { return await this.prisma.student.create({ data: { name: dto.name.trim(), birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined, document: dto.document, status: dto.status, notes: dto.notes, schoolId:dto.schoolId, guardians: { create: dto.guardians.map((item) => ({ guardianId: item.guardianId, relationship: item.relationship })) } }, select: studentSelect }); }
+    try { return await this.prisma.student.create({ data: { name: dto.name.trim(), birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined, document: dto.document, status: dto.status, notes: dto.notes, guardians: { create: dto.guardians.map((item) => ({ guardianId: item.guardianId, relationship: item.relationship })) } }, select: studentSelect }); }
     catch (error) { return this.conflict(error); }
   }
   async list(query: StudentQueryDto) {
@@ -37,9 +35,9 @@ export class StudentsService {
     return { ...student, guardians: student.guardians.map(({ relationship, guardian }) => ({ ...guardian, relationship })) };
   }
   async update(id: string, dto: UpdateStudentDto) {
-    await this.findOne(id); if (dto.guardians) await this.ensureGuardians(dto.guardians);if(dto.schoolId!==undefined)await this.ensureActiveSchool(dto.schoolId);
+    await this.findOne(id); if (dto.guardians) await this.ensureGuardians(dto.guardians);
     try { return await this.prisma.$transaction(async (tx) => {
-      const student = await tx.student.update({ where: { id }, data: { ...(dto.name !== undefined && { name: dto.name.trim() }), ...(dto.birthDate !== undefined && { birthDate: new Date(dto.birthDate) }), document: dto.document, ...(dto.status !== undefined && { status: dto.status }), notes: dto.notes, ...(dto.schoolId!==undefined&&{schoolId:dto.schoolId}) }, select: studentSelect });
+      const student = await tx.student.update({ where: { id }, data: { ...(dto.name !== undefined && { name: dto.name.trim() }), ...(dto.birthDate !== undefined && { birthDate: new Date(dto.birthDate) }), document: dto.document, ...(dto.status !== undefined && { status: dto.status }), notes: dto.notes }, select: studentSelect });
       if (dto.guardians) { await tx.studentGuardian.deleteMany({ where: { studentId: id } }); await tx.studentGuardian.createMany({ data: dto.guardians.map((item) => ({ studentId: id, guardianId: item.guardianId, relationship: item.relationship })) }); }
       return student;
     }); } catch (error) { return this.conflict(error); }
