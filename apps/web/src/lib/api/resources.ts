@@ -1,0 +1,10 @@
+import { api } from './client';
+export type StudentStatus='ACTIVE'|'INACTIVE'; export type Relationship='MOTHER'|'FATHER'|'GRANDMOTHER'|'GRANDFATHER'|'AUNT'|'UNCLE'|'BROTHER'|'SISTER'|'LEGAL_GUARDIAN'|'OTHER';
+export interface Pagination{page:number;pageSize:number;total:number;totalPages:number} export interface Page<T>{data:T[];pagination:Pagination}
+export interface Guardian{id:string;name:string;phone:string;email?:string;document?:string;studentCount?:number;students?:Array<{id:string;name:string;status:StudentStatus;relationship:Relationship}>}
+export interface Student{id:string;name:string;birthDate?:string;document?:string;status:StudentStatus;notes?:string;guardianCount?:number;guardians?:Array<Guardian&{relationship:Relationship}>}
+export interface GuardianInput{name:string;phone:string;email?:string;document?:string}
+export interface StudentInput{name:string;birthDate?:string;document?:string;status:StudentStatus;notes?:string;guardians:Array<{guardianId:string;relationship:Relationship}>}
+const query=(values:Record<string,string|number|undefined>)=>{const p=new URLSearchParams();Object.entries(values).forEach(([k,v])=>v!==undefined&&v!==''&&p.set(k,String(v)));return p.toString()};
+export const guardiansApi={list:(params:Record<string,string|number|undefined>)=>api<Page<Guardian>>(`/guardians?${query(params)}`),one:(id:string)=>api<Guardian>(`/guardians/${id}`),create:(data:GuardianInput)=>api<Guardian>('/guardians',{method:'POST',body:JSON.stringify(data)}),update:(id:string,data:Partial<GuardianInput>)=>api<Guardian>(`/guardians/${id}`,{method:'PATCH',body:JSON.stringify(data)}),remove:(id:string)=>api(`/guardians/${id}`,{method:'DELETE'})};
+export const studentsApi={list:(params:Record<string,string|number|undefined>)=>api<Page<Student>>(`/students?${query(params)}`),one:(id:string)=>api<Student>(`/students/${id}`),create:(data:StudentInput)=>api<Student>('/students',{method:'POST',body:JSON.stringify(data)}),update:(id:string,data:Partial<StudentInput>)=>api<Student>(`/students/${id}`,{method:'PATCH',body:JSON.stringify(data)}),remove:(id:string)=>api(`/students/${id}`,{method:'DELETE'})};
