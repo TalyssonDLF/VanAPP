@@ -1,0 +1,14 @@
+CREATE TYPE "VehicleType" AS ENUM ('VAN', 'MINIBUS', 'BUS', 'OTHER');
+CREATE TYPE "VehicleStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'MAINTENANCE');
+CREATE TYPE "VehicleDocumentType" AS ENUM ('REGISTRATION', 'INSURANCE', 'INSPECTION', 'AUTHORIZATION', 'OTHER');
+CREATE TABLE "Vehicle" ("id" TEXT NOT NULL, "plate" TEXT NOT NULL, "renavam" TEXT, "brand" TEXT NOT NULL, "model" TEXT NOT NULL, "manufactureYear" INTEGER, "modelYear" INTEGER, "color" TEXT, "passengerCapacity" INTEGER NOT NULL, "type" "VehicleType" NOT NULL, "status" "VehicleStatus" NOT NULL DEFAULT 'ACTIVE', "currentMileage" INTEGER, "defaultDriverId" TEXT, "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Vehicle_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "VehicleDocument" ("id" TEXT NOT NULL, "vehicleId" TEXT NOT NULL, "type" "VehicleDocumentType" NOT NULL, "identifier" TEXT, "issuedAt" TIMESTAMP(3), "expiresAt" TIMESTAMP(3), "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "VehicleDocument_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "Vehicle_plate_key" ON "Vehicle"("plate");
+CREATE UNIQUE INDEX "Vehicle_renavam_key" ON "Vehicle"("renavam");
+CREATE INDEX "Vehicle_status_idx" ON "Vehicle"("status");
+CREATE INDEX "Vehicle_brand_model_idx" ON "Vehicle"("brand", "model");
+CREATE INDEX "Vehicle_defaultDriverId_idx" ON "Vehicle"("defaultDriverId");
+CREATE INDEX "VehicleDocument_vehicleId_idx" ON "VehicleDocument"("vehicleId");
+CREATE INDEX "VehicleDocument_expiresAt_idx" ON "VehicleDocument"("expiresAt");
+ALTER TABLE "Vehicle" ADD CONSTRAINT "Vehicle_defaultDriverId_fkey" FOREIGN KEY ("defaultDriverId") REFERENCES "Driver"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "VehicleDocument" ADD CONSTRAINT "VehicleDocument_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"("id") ON DELETE CASCADE ON UPDATE CASCADE;
