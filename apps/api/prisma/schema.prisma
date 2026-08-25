@@ -8,13 +8,18 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  sessionVersion Int    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String
+  sessionVersion        Int                    @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  financialTransactions FinancialTransaction[]
+  studentBillings       StudentBilling[]
+  financialCategories   FinancialCategory[]
+  fuelLogs              FuelLog[]
+  financialAuditLogs    FinancialAuditLog[]
 }
 
 enum StudentStatus {
@@ -54,11 +59,13 @@ enum VehicleType {
   BUS
   OTHER
 }
+
 enum VehicleStatus {
   ACTIVE
   INACTIVE
   MAINTENANCE
 }
+
 enum VehicleDocumentType {
   REGISTRATION
   INSURANCE
@@ -68,40 +75,44 @@ enum VehicleDocumentType {
 }
 
 model Vehicle {
-  id String @id @default(cuid())
-  plate String @unique
-  renavam String? @unique
-  brand String
-  model String
-  manufactureYear Int?
-  modelYear Int?
-  color String?
-  passengerCapacity Int
-  type VehicleType
-  status VehicleStatus @default(ACTIVE)
-  currentMileage Int?
-  defaultDriverId String?
-  defaultDriver Driver? @relation(fields: [defaultDriverId], references: [id], onDelete: SetNull)
-  notes String?
-  documents VehicleDocument[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String                 @id @default(cuid())
+  plate                 String                 @unique
+  renavam               String?                @unique
+  brand                 String
+  model                 String
+  manufactureYear       Int?
+  modelYear             Int?
+  color                 String?
+  passengerCapacity     Int
+  type                  VehicleType
+  status                VehicleStatus          @default(ACTIVE)
+  currentMileage        Int?
+  defaultDriverId       String?
+  defaultDriver         Driver?                @relation(fields: [defaultDriverId], references: [id], onDelete: SetNull)
+  notes                 String?
+  documents             VehicleDocument[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  financialTransactions FinancialTransaction[]
+  fuelLogs              FuelLog[]
+
   @@index([status])
   @@index([brand, model])
   @@index([defaultDriverId])
 }
 
 model VehicleDocument {
-  id String @id @default(cuid())
-  vehicleId String
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  type VehicleDocumentType
+  id         String              @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type       VehicleDocumentType
   identifier String?
-  issuedAt DateTime?
-  expiresAt DateTime?
-  notes String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+  notes      String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
   @@index([vehicleId])
   @@index([expiresAt])
 }
@@ -120,39 +131,195 @@ enum GuardianRelationship {
 }
 
 model Guardian {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  phone     String
-  document  String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  students  StudentGuardian[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String?
+  phone                 String
+  document              String?                @unique
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  students              StudentGuardian[]
+  financialTransactions FinancialTransaction[]
+  studentBillings       StudentBilling[]
 
   @@index([name])
 }
 
 model Student {
-  id        String        @id @default(cuid())
-  name      String
-  birthDate DateTime?
-  document  String?       @unique
-  status    StudentStatus @default(ACTIVE)
-  notes     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  guardians StudentGuardian[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  birthDate             DateTime?
+  document              String?                @unique
+  status                StudentStatus          @default(ACTIVE)
+  notes                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  guardians             StudentGuardian[]
+  financialTransactions FinancialTransaction[]
+  studentBillings       StudentBilling[]
 
   @@index([name])
   @@index([status])
+}
+
+enum FinancialTransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum FinancialStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PIX
+  CASH
+  CARD
+  BOLETO
+  TRANSFER
+  DIRECT_DEBIT
+  OTHER
+}
+
+model FinancialCategory {
+  id           String                   @id @default(cuid())
+  ownerId      String
+  owner        User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  type         FinancialTransactionType
+  archivedAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  transactions FinancialTransaction[]
+
+  @@unique([ownerId, name, type])
+  @@index([ownerId, archivedAt])
+}
+
+model FinancialTransaction {
+  id                 String                   @id @default(cuid())
+  ownerId            String
+  owner              User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type               FinancialTransactionType
+  description        String
+  amountCents        Int
+  paidCents          Int                      @default(0)
+  status             FinancialStatus          @default(PENDING)
+  dueDate            DateTime                 @db.Date
+  competence         DateTime                 @db.Date
+  paymentMethod      PaymentMethod?
+  notes              String?
+  categoryId         String?
+  category           FinancialCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  studentId          String?
+  student            Student?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  guardianId         String?
+  guardian           Guardian?                @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  vehicleId          String?
+  vehicle            Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  billingId          String?
+  billing            StudentBilling?          @relation(fields: [billingId], references: [id], onDelete: SetNull)
+  recurrenceKey      String?
+  installmentNumber  Int?
+  installmentCount   Int?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  payments           FinancialPayment[]
+  fuelLog            FuelLog?
+  auditLogs          FinancialAuditLog[]
+
+  @@unique([ownerId, recurrenceKey, dueDate])
+  @@index([ownerId, status, dueDate])
+  @@index([ownerId, type, competence])
+  @@index([studentId])
+  @@index([vehicleId])
+  @@index([categoryId])
+}
+
+model FinancialPayment {
+  id             String               @id @default(cuid())
+  transactionId  String
+  transaction    FinancialTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  amountCents    Int
+  method         PaymentMethod
+  paidAt         DateTime
+  reversedAt     DateTime?
+  reversalReason String?
+  idempotencyKey String?
+  createdAt      DateTime             @default(now())
+
+  @@unique([transactionId, idempotencyKey])
+  @@index([transactionId, paidAt])
+}
+
+model StudentBilling {
+  id                 String                 @id @default(cuid())
+  ownerId            String
+  owner              User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardianId         String?
+  guardian           Guardian?              @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  monthlyAmountCents Int
+  discountCents      Int                    @default(0)
+  dueDay             Int
+  preferredMethod    PaymentMethod?
+  startsOn           DateTime               @db.Date
+  endsOn             DateTime?              @db.Date
+  active             Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  transactions       FinancialTransaction[]
+
+  @@unique([ownerId, studentId, startsOn])
+  @@index([ownerId, active])
+}
+
+model FuelLog {
+  id                 String               @id @default(cuid())
+  ownerId            String
+  owner              User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicleId          String
+  vehicle            Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  transactionId      String               @unique
+  transaction        FinancialTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  fueledOn           DateTime             @db.Date
+  station            String?
+  fuelType           String
+  liters             Decimal              @db.Decimal(10, 3)
+  pricePerLiterCents Int
+  mileage            Int
+  fullTank           Boolean              @default(false)
+  notes              String?
+  createdAt          DateTime             @default(now())
+
+  @@index([ownerId, vehicleId, fueledOn])
+}
+
+model FinancialAuditLog {
+  id            String               @id @default(cuid())
+  ownerId       String
+  owner         User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  transactionId String
+  transaction   FinancialTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  action        String
+  details       Json?
+  createdAt     DateTime             @default(now())
+
+  @@index([ownerId, transactionId, createdAt])
 }
 
 model StudentGuardian {
   studentId    String
   guardianId   String
   relationship GuardianRelationship
-  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  guardian     Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student      Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian     Guardian             @relation(fields: [guardianId], references: [id], onDelete: Cascade)
 
   @@id([studentId, guardianId])
   @@index([guardianId])

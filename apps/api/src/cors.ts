@@ -23,5 +23,9 @@ export function configureCors(
   app.enableCors({
     origin: configuredOrigins,
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
+    maxAge: 86400,
+    optionsSuccessStatus: 204,
   });
 }

@@ -11,7 +11,8 @@ describe("API CORS bootstrap configuration", () => {
   it("always includes official origins and merges configured origins", () => {
     expect(
       getConfiguredOrigins({
-        FRONTEND_URLS: " https://extra.example,https://vanapp-front.onrender.com ",
+        FRONTEND_URLS:
+          " https://extra.example,https://vanapp-front.onrender.com ",
       }),
     ).toEqual([
       "http://localhost:5173",
@@ -63,6 +64,42 @@ describe("API CORS bootstrap configuration", () => {
         "https://vanapp-front.onrender.com",
       );
       expect(response.headers["access-control-allow-credentials"]).toBe("true");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("does not return an allow-origin header to an unauthorized origin", async () => {
+    const app = await NestFactory.create(CorsTestModule, { logger: false });
+    configureCors(app);
+    await app.listen(0, "127.0.0.1");
+    try {
+      const address = (app.getHttpServer() as Server).address();
+      if (!address || typeof address === "string")
+        throw new Error("Missing port");
+      const headers = await new Promise<
+        Record<string, string | string[] | undefined>
+      >((resolve, reject) => {
+        const req = request(
+          {
+            host: "127.0.0.1",
+            port: address.port,
+            path: "/auth/me",
+            method: "OPTIONS",
+            headers: {
+              Origin: "https://evil.example",
+              "Access-Control-Request-Method": "GET",
+            },
+          },
+          (res) => {
+            res.resume();
+            res.on("end", () => resolve(res.headers));
+          },
+        );
+        req.on("error", reject);
+        req.end();
+      });
+      expect(headers["access-control-allow-origin"]).toBeUndefined();
     } finally {
       await app.close();
     }
