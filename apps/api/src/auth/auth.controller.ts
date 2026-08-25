@@ -13,14 +13,21 @@ import { AuthGuard, AuthenticatedRequest } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
-const isProduction = process.env.NODE_ENV === "production";
-const cookieOptions: CookieOptions = {
-  httpOnly: true,
-  // Separate Render services can be cross-site, so production cookies must permit credentialed HTTPS requests.
-  sameSite: isProduction ? "none" : "lax",
-  secure: isProduction,
-  path: "/",
-};
+export function getCookieOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): CookieOptions {
+  const isProduction = env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    // Separate Render services are cross-site, so HTTPS production requests require SameSite=None.
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    path: "/",
+  };
+}
+
+const cookieOptions = getCookieOptions();
 const sessionCookieOptions: CookieOptions = {
   ...cookieOptions,
   maxAge: 7 * 24 * 60 * 60 * 1000,
