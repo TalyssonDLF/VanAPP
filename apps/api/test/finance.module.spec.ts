@@ -19,11 +19,20 @@ describe('FinanceModule authentication', () => {
   it('resolves the shared AuthGuard and accepts a valid session', async () => {
     const module = await Test.createTestingModule({ imports: [FinanceModule] })
       .overrideProvider(PrismaService)
-      .useValue({})
+      .useValue({
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'owner-1',
+            name: 'Owner',
+            email: 'owner@example.com',
+            sessionVersion: 0,
+          }),
+        },
+      })
       .compile();
     const guard = module.get(AuthGuard);
     const jwt = module.get(JwtService);
-    const token = await jwt.signAsync({ sub: 'owner-1', email: 'owner@example.com' });
+    const token = await jwt.signAsync({ sub: 'owner-1', version: 0 });
     const request = { cookies: { vanescolar_session: token } };
 
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
