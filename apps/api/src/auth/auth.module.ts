@@ -31,6 +31,7 @@ import { AuthService } from './auth.service';
 
   exports: [
     AuthGuard,
+    AuthService,
     JwtModule,
   ],
 })

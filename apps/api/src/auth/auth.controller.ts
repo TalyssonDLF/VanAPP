@@ -13,6 +13,7 @@ import { AuthGuard, AuthenticatedRequest } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { SESSION_COOKIE_NAME } from "./auth.constants";
 export function getCookieOptions(
   env: NodeJS.ProcessEnv = process.env,
 ): CookieOptions {
@@ -40,7 +41,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.register(dto);
-    response.cookie("vanescolar_session", result.token, sessionCookieOptions);
+    response.cookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
     return result.user;
   }
   @HttpCode(200) @Post("login") async login(
@@ -48,7 +49,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.auth.login(dto);
-    response.cookie("vanescolar_session", result.token, sessionCookieOptions);
+    response.cookie(SESSION_COOKIE_NAME, result.token, sessionCookieOptions);
     return result.user;
   }
   @UseGuards(AuthGuard) @Get("me") me(@Req() request: AuthenticatedRequest) {
@@ -59,6 +60,6 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     await this.auth.logout(request.user.sub);
-    response.clearCookie("vanescolar_session", cookieOptions);
+    response.clearCookie(SESSION_COOKIE_NAME, cookieOptions);
   }
 }
