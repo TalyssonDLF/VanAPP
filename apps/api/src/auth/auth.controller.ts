@@ -17,7 +17,13 @@ import { SESSION_COOKIE_NAME } from "./auth.constants";
 export function getCookieOptions(
   env: NodeJS.ProcessEnv = process.env,
 ): CookieOptions {
-  const isProduction = env.NODE_ENV === "production";
+  // Render exposes RENDER=true to its services. Treat it as production even
+  // when NODE_ENV was omitted in the service configuration; otherwise Chrome
+  // rejects the Lax cookie on the cross-site frontend -> API request.
+  const isProduction =
+    env.NODE_ENV === "production" ||
+    env.RENDER === "true" ||
+    Boolean(env.RENDER_EXTERNAL_URL);
 
   return {
     httpOnly: true,
