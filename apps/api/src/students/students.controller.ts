@@ -1,2 +1,44 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'; import { AuthGuard } from '../auth/auth.guard'; import { CreateStudentDto, StudentQueryDto, UpdateStudentDto } from './dto/student.dto'; import { StudentsService } from './students.service';
-@UseGuards(AuthGuard) @Controller('students') export class StudentsController { constructor(private readonly service:StudentsService){} @Get() list(@Query() q:StudentQueryDto){return this.service.list(q)} @Get(':id') one(@Param('id') id:string){return this.service.findOne(id)} @Post() create(@Body() d:CreateStudentDto){return this.service.create(d)} @Patch(':id') update(@Param('id') id:string,@Body() d:UpdateStudentDto){return this.service.update(id,d)} @Delete(':id') remove(@Param('id') id:string){return this.service.remove(id)} }
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import { AuthGuard } from "../auth/auth.guard";
+import {
+  CreateStudentDto,
+  StudentQueryDto,
+  UpdateStudentDto,
+} from "./dto/student.dto";
+import { StudentsService } from "./students.service";
+@UseGuards(AuthGuard)
+@Controller("students")
+export class StudentsController {
+  constructor(private readonly service: StudentsService) {}
+  @Get() list(@Query() q: StudentQueryDto) {
+    return this.service.list(q);
+  }
+  @Get("map") map(@Query("vehicleId") vehicleId?: string) {
+    return this.service.mapData(vehicleId);
+  }
+  @Post("map/geocode") geocode() {
+    return this.service.geocodePending();
+  }
+  @Get(":id") one(@Param("id") id: string) {
+    return this.service.findOne(id);
+  }
+  @Post() create(@Body() d: CreateStudentDto) {
+    return this.service.create(d);
+  }
+  @Patch(":id") update(@Param("id") id: string, @Body() d: UpdateStudentDto) {
+    return this.service.update(id, d);
+  }
+  @Delete(":id") remove(@Param("id") id: string) {
+    return this.service.remove(id);
+  }
+}

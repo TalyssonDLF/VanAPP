@@ -1,2 +1,43 @@
 @import "tailwindcss";
-:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#171717;background:#fafafa;font-synthesis:none}*{box-sizing:border-box}body{margin:0;min-width:320px}button,input{font:inherit}:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #171717;
+  background: #fafafa;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+button,
+input {
+  font: inherit;
+}
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.map-student-marker {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 2px 8px #0005;
+}
+.map-van-marker {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: #fef3c7;
+  font-size: 24px;
+  box-shadow: 0 2px 8px #0005;
+}
