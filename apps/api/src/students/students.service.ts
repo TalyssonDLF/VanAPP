@@ -12,7 +12,7 @@ import {
   StudentQueryDto,
   UpdateStudentDto,
 } from "./dto/student.dto";
-import { GeocodingService } from "../geocoding/geocoding.service";
+import { addressKey, GeocodingService } from "../geocoding/geocoding.service";
 
 const studentSelect = {
   id: true,
@@ -23,6 +23,7 @@ const studentSelect = {
   notes: true,
   createdAt: true,
   updatedAt: true,
+  schoolId: true,
 } satisfies Prisma.StudentSelect;
 @Injectable()
 export class StudentsService {
@@ -45,6 +46,24 @@ export class StudentsService {
       geocodingError: null,
       geocodedAt: null,
     };
+  }
+  private async locatedAddress(
+    address: NonNullable<CreateStudentDto["address"]>,
+  ) {
+    const data = this.addressData(address);
+    try {
+      const result = await this.geocoding.geocode(address);
+      return result
+        ? {
+            ...data,
+            ...result,
+            geocodingStatus: "LOCATED" as const,
+            geocodedAt: new Date(),
+          }
+        : data;
+    } catch {
+      return data;
+    }
   }
   private async ensureGuardians(guardians: StudentGuardianDto[]) {
     if (!guardians.length) return;
@@ -72,6 +91,7 @@ export class StudentsService {
           document: dto.document,
           status: dto.status,
           notes: dto.notes,
+          schoolId: dto.schoolId,
           guardians: {
             create: dto.guardians.map((item) => ({
               guardianId: item.guardianId,
@@ -79,7 +99,7 @@ export class StudentsService {
             })),
           },
           ...(dto.address && {
-            address: { create: this.addressData(dto.address) },
+            address: { create: await this.locatedAddress(dto.address) },
           }),
         },
         select: studentSelect,
@@ -149,7 +169,7 @@ export class StudentsService {
     };
   }
   async update(id: string, dto: UpdateStudentDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     if (dto.guardians) await this.ensureGuardians(dto.guardians);
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -163,11 +183,26 @@ export class StudentsService {
             document: dto.document,
             ...(dto.status !== undefined && { status: dto.status }),
             notes: dto.notes,
+            ...(dto.schoolId !== undefined && {
+              schoolId: dto.schoolId || null,
+            }),
             ...(dto.address && {
               address: {
                 upsert: {
-                  create: this.addressData(dto.address),
-                  update: this.addressData(dto.address),
+                  create: await this.locatedAddress(dto.address),
+                  update:
+                    addressKey(existing.address ?? {}) ===
+                    addressKey(dto.address)
+                      ? {
+                          street: dto.address.street.trim(),
+                          number: dto.address.number?.trim(),
+                          complement: dto.address.complement?.trim(),
+                          neighborhood: dto.address.neighborhood?.trim(),
+                          city: dto.address.city.trim(),
+                          state: dto.address.state.trim().toUpperCase(),
+                          postalCode: dto.address.postalCode,
+                        }
+                      : await this.locatedAddress(dto.address),
                 },
               },
             }),
@@ -196,13 +231,15 @@ export class StudentsService {
     return { message: "Aluno excluído." };
   }
   async mapData(vehicleId?: string) {
-    const [students, vehicles] = await Promise.all([
+    const [students, vehicles, schools] = await Promise.all([
       this.prisma.student.findMany({
         orderBy: [{ name: "asc" }, { id: "asc" }],
         select: {
           id: true,
           name: true,
           status: true,
+          schoolId: true,
+          school: { select: { id: true, name: true, mapColor: true } },
           address: {
             select: {
               street: true,
@@ -228,12 +265,36 @@ export class StudentsService {
           plate: true,
           brand: true,
           model: true,
-          baseAddress: true,
-          baseLatitude: true,
-          baseLongitude: true,
+          startPostalCode: true,
+          startStreet: true,
+          startNumber: true,
+          startComplement: true,
+          startNeighborhood: true,
+          startCity: true,
+          startState: true,
+          startLatitude: true,
+          startLongitude: true,
           defaultDriver: { select: { id: true, name: true } },
         },
       }),
+      this.prisma.school?.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          mapColor: true,
+          postalCode: true,
+          street: true,
+          number: true,
+          complement: true,
+          neighborhood: true,
+          city: true,
+          state: true,
+          latitude: true,
+          longitude: true,
+          _count: { select: { students: true } },
+        },
+      }) ?? Promise.resolve([]),
     ]);
     const selected =
       vehicles.find((vehicle) => vehicle.id === vehicleId) ??
@@ -252,6 +313,42 @@ export class StudentsService {
       })),
       vehicles,
       selectedVehicle: selected,
+      schools: schools.map(({ _count, ...school }) => ({
+        ...school,
+        studentCount: _count.students,
+      })),
+      waypoints: [
+        ...(selected?.startLatitude != null && selected.startLongitude != null
+          ? [
+              {
+                id: selected.id,
+                type: "vehicle_start",
+                latitude: selected.startLatitude,
+                longitude: selected.startLongitude,
+              },
+            ]
+          : []),
+        ...students
+          .filter(
+            (s) => s.address?.latitude != null && s.address.longitude != null,
+          )
+          .map((s) => ({
+            id: s.id,
+            type: "student",
+            latitude: s.address!.latitude!,
+            longitude: s.address!.longitude!,
+            schoolId: s.schoolId ?? undefined,
+          })),
+        ...schools
+          .filter((s) => s.latitude != null && s.longitude != null)
+          .map((s) => ({
+            id: s.id,
+            type: "school",
+            latitude: s.latitude!,
+            longitude: s.longitude!,
+            schoolId: s.id,
+          })),
+      ],
     };
   }
   async geocodePending(limit = 5) {

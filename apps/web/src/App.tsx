@@ -8,6 +8,7 @@ import { StudentsList, StudentForm, StudentDetail } from "@/pages/students";
 import { DriverDetail, DriverForm, DriversList } from "@/pages/drivers";
 import { VehicleDetail, VehicleForm, VehiclesList } from "@/pages/vehicles";
 import { FinancePage } from "@/pages/finance";
+import { SchoolsList, SchoolForm, SchoolDetail } from "@/pages/schools";
 import { StudentMapPage } from "@/pages/student-map";
 const routes: [string, string, string?][] = [
   ["alunos", "Alunos", "/alunos/novo"],
@@ -83,6 +84,10 @@ export default function App() {
           <Route path="veiculos/novo" element={<VehicleForm />} />
           <Route path="veiculos/:id" element={<VehicleDetail />} />
           <Route path="veiculos/:id/editar" element={<VehicleForm />} />
+          <Route path="escolas" element={<SchoolsList />} />
+          <Route path="escolas/nova" element={<SchoolForm />} />
+          <Route path="escolas/:id" element={<SchoolDetail />} />
+          <Route path="escolas/:id/editar" element={<SchoolForm />} />
           <Route path="financeiro" element={<FinancePage />} />
           <Route path="financeiro/mensalidades" element={<FinancePage />} />
           <Route path="financeiro/pagamentos" element={<FinancePage />} />
@@ -93,6 +98,7 @@ export default function App() {
                 !path.startsWith("responsaveis") &&
                 !path.startsWith("motoristas") &&
                 !path.startsWith("veiculos") &&
+                !path.startsWith("escolas") &&
                 !path.startsWith("financeiro"),
             )
             .map(([path, title, action]) => (

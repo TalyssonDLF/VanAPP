@@ -9,6 +9,7 @@ type LeafletMap = {
   remove(): void;
   fitBounds(points: [number, number][], options?: object): void;
   flyTo(point: [number, number], zoom: number): void;
+  setView(point: [number, number], zoom: number): void;
 };
 type Leaflet = {
   map(element: HTMLElement): LeafletMap;

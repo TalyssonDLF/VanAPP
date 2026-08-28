@@ -40,6 +40,7 @@ export class StudentQueryDto extends PaginationDto {
   @IsOptional() @IsEnum(StudentStatus) status?: StudentStatus;
 }
 export class CreateStudentDto {
+  @IsOptional() @IsString() schoolId?: string;
   @IsString() @MinLength(2) @MaxLength(120) name!: string;
   @Transform(({ value }) => emptyToUndefined(value))
   @IsOptional()
@@ -72,6 +73,7 @@ export class CreateStudentDto {
   address?: StudentAddressDto;
 }
 export class UpdateStudentDto {
+  @IsOptional() @IsString() schoolId?: string;
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string;
   @Transform(({ value }) => emptyToUndefined(value))
   @IsOptional()

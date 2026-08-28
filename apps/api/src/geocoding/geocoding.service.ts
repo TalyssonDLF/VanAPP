@@ -1,18 +1,52 @@
 import { Injectable } from "@nestjs/common";
 
 export type GeocodingResult = { latitude: number; longitude: number } | null;
+export type GeocodingAddress = {
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+};
+export const addressKey = (address: GeocodingAddress) =>
+  [
+    address.street,
+    address.number,
+    address.neighborhood,
+    address.city,
+    address.state,
+    address.postalCode,
+  ]
+    .map((value) => value?.trim().toLocaleLowerCase("pt-BR") ?? "")
+    .join("|");
 
 /** Provider boundary for persisted address coordinates. Uses Nominatim conservatively. */
 @Injectable()
 export class GeocodingService {
   private nextRequestAt = 0;
 
-  async geocode(address: string): Promise<GeocodingResult> {
+  async geocode(address: GeocodingAddress | string): Promise<GeocodingResult> {
     const wait = Math.max(0, this.nextRequestAt - Date.now());
     if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
     this.nextRequestAt = Date.now() + 1100;
     const url = new URL("https://nominatim.openstreetmap.org/search");
-    url.searchParams.set("q", address);
+    const query =
+      typeof address === "string"
+        ? address
+        : [
+            address.street,
+            address.number,
+            address.neighborhood,
+            address.city,
+            address.state,
+            address.postalCode,
+            "Brasil",
+          ]
+            .filter(Boolean)
+            .join(", ");
+    if (!query.trim()) return null;
+    url.searchParams.set("q", query);
     url.searchParams.set("format", "jsonv2");
     url.searchParams.set("limit", "1");
     url.searchParams.set("countrycodes", "br");
