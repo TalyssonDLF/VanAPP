@@ -67,6 +67,20 @@ export function StudentMapPage() {
       () => data?.schools.filter((s) => !schoolId || s.id === schoolId) ?? [],
       [data, schoolId],
     );
+  useEffect(() => {
+    if (!import.meta.env.DEV || !data) return;
+    console.debug("[StudentMap]", {
+      studentsLoaded: students.length,
+      studentsWithCoordinates: students.filter(isStudentLocated).length,
+      schoolsWithCoordinates: schools.filter((school) =>
+        valid(school.latitude, school.longitude),
+      ).length,
+      vehicleHasStartPoint: valid(
+        data.selectedVehicle?.startLatitude,
+        data.selectedVehicle?.startLongitude,
+      ),
+    });
+  }, [data, schools, students]);
   if (!data)
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -76,13 +90,15 @@ export function StudentMapPage() {
   const missingStudents = students.filter((s) => !isStudentLocated(s)),
     missingSchools = schools.filter((s) => !valid(s.latitude, s.longitude));
   return (
-    <>
-      <PageHeader
-        title="Mapa de Alunos"
-        description="Residências, escolas e pontos iniciais das vans."
-      />
-      <div className="mt-5 grid overflow-hidden rounded-lg border bg-white lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-4 border-r p-4">
+    <div className="student-map-page">
+      <div className="student-map-header">
+        <PageHeader
+          title="Mapa de Alunos"
+          description="Residências, escolas e pontos iniciais das vans."
+        />
+      </div>
+      <div className="student-map-workspace">
+        <aside className="student-map-sidebar space-y-4 p-4">
           <Field label="Van">
             <Select
               value={vehicleId}
@@ -184,13 +200,15 @@ export function StudentMapPage() {
             Atualizar localizações
           </Button>
         </aside>
-        <Map
-          students={layers.students ? students : []}
-          schools={layers.schools ? schools : []}
-          vehicle={layers.vehicles ? data.selectedVehicle : null}
-        />
+        <main className="student-map-content">
+          <Map
+            students={layers.students ? students : []}
+            schools={layers.schools ? schools : []}
+            vehicle={layers.vehicles ? data.selectedVehicle : null}
+          />
+        </main>
       </div>
-    </>
+    </div>
   );
 }
 function Field({
@@ -215,17 +233,26 @@ function Summary({ n, t }: { n: number; t: string }) {
     </div>
   );
 }
+const markerSvg = {
+  student:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21c.5-5 2.8-7 7-7s6.5 2 7 7z"/></svg>',
+  school:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-6 9 6v10H3z"/><path class="marker-cutout" d="M7 11h3v3H7zm7 0h3v3h-3zm-4 5h4v4h-4z"/></svg>',
+  van: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13c2 0 3 1 4 4l1 4v4h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H2V8a2 2 0 0 1 1-2z"/><path class="marker-cutout" d="M5 8h5v4H5zm7 0h4c1 0 1.5 1 2 4h-6z"/></svg>',
+};
 function icon(
   L: Awaited<ReturnType<typeof loadLeaflet>>,
-  symbol: string,
   color: string,
-  kind: string,
+  kind: keyof typeof markerSvg,
 ) {
+  const safeColor = /^#[0-9a-f]{3,8}$/i.test(color) ? color : "#475569";
+  const size = kind === "student" ? 36 : kind === "school" ? 44 : 46;
   return L.divIcon({
-    className: "map-custom-marker",
-    html: `<span class="map-symbol map-${kind}" style="background:${color}">${symbol}</span>`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
+    className: `map-custom-marker map-${kind}-icon`,
+    html: `<span class="map-marker map-${kind}" style="--marker-color:${safeColor}">${markerSvg[kind]}</span>`,
+    iconSize: [size, size + 8],
+    iconAnchor: [size / 2, size + 8],
+    popupAnchor: [0, -size - 4],
   });
 }
 function Map({
@@ -242,11 +269,16 @@ function Map({
     markers = useRef<Marker[]>([]);
   useEffect(() => {
     let active = true;
+    let observer: ResizeObserver | undefined;
     void loadLeaflet()
       .then((L) => {
         if (!active || !ref.current) return;
         const m = L.map(ref.current);
         map.current = m;
+        observer = new ResizeObserver(() => {
+          window.requestAnimationFrame(() => m.invalidateSize({ pan: false }));
+        });
+        observer.observe(ref.current);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap contributors",
@@ -260,7 +292,7 @@ function Map({
           ];
           points.push(p);
           markers.current.push(
-            L.marker(p, { icon: icon(L, "🚐", "#111827", "van") })
+            L.marker(p, { icon: icon(L, "#f59e0b", "van") })
               .addTo(m)
               .bindPopup(
                 `<strong>🚐 ${esc(`${vehicle.brand} ${vehicle.model}`)}</strong><br>Ponto inicial<br>${esc([vehicle.startStreet, vehicle.startNumber].filter(Boolean).join(", "))}${vehicle.startNeighborhood ? `<br>${esc(vehicle.startNeighborhood)}` : ""}${vehicle.defaultDriver ? `<br>Motorista: ${esc(vehicle.defaultDriver.name)}` : ""}`,
@@ -273,7 +305,7 @@ function Map({
             const p: [number, number] = [s.latitude!, s.longitude!];
             points.push(p);
             markers.current.push(
-              L.marker(p, { icon: icon(L, "🏫", s.mapColor, "school") })
+              L.marker(p, { icon: icon(L, s.mapColor, "school") })
                 .addTo(m)
                 .bindPopup(
                   `<strong>🏫 ${esc(s.name)}</strong><br>${esc([s.street, s.number].filter(Boolean).join(", "))}<br>${esc(s.neighborhood ?? "")}<br>${s.studentCount} alunos vinculados<br><a href="/escolas/${encodeURIComponent(s.id)}">Ver escola</a>`,
@@ -288,7 +320,7 @@ function Map({
             color = s.school?.mapColor ?? "#475569";
           points.push(p);
           markers.current.push(
-            L.marker(p, { icon: icon(L, "👤", color, "student") })
+            L.marker(p, { icon: icon(L, color, "student") })
               .addTo(m)
               .bindPopup(
                 `<strong>👤 ${esc(s.name)}</strong><br>${esc(s.address ?? "")}<br>${esc(s.addressDetails?.neighborhood ?? "")}${s.school ? `<br>🏫 ${esc(s.school.name)}` : ""}<br><a href="/alunos/${encodeURIComponent(s.id)}">Ver aluno</a>`,
@@ -302,12 +334,13 @@ function Map({
       .catch(() => toast.error("Não foi possível carregar o Leaflet."));
     return () => {
       active = false;
+      observer?.disconnect();
       map.current?.remove();
       map.current = null;
     };
   }, [students, schools, vehicle]);
   return (
-    <div className="relative min-h-[620px]">
+    <div className="student-map-canvas">
       {!students.some(isStudentLocated) &&
         !schools.some((s) => valid(s.latitude, s.longitude)) &&
         !valid(vehicle?.startLatitude, vehicle?.startLongitude) && (
