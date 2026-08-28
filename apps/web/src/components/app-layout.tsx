@@ -208,7 +208,13 @@ export function AppLayout() {
             </Dropdown.Root>
           </div>
         </header>
-        <main className="mx-auto max-w-7xl p-5 sm:p-7">
+        <main
+          className={cn(
+            "mx-auto max-w-7xl p-5 sm:p-7",
+            location.pathname === "/rotas/mapa" &&
+              "h-[calc(100vh-3.5rem)] min-h-0 max-w-none p-0 sm:p-0",
+          )}
+        >
           <Outlet />
         </main>
       </div>
