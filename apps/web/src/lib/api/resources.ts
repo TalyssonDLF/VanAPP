@@ -54,6 +54,8 @@ export interface Student {
   birthDate?: string;
   document?: string;
   status: StudentStatus;
+  schoolId?: string;
+  school?: { id: string; name: string; mapColor: string };
   notes?: string;
   guardianCount?: number;
   guardians?: Array<Guardian & { relationship: Relationship }>;
@@ -70,12 +72,28 @@ export interface StudentInput {
   birthDate?: string;
   document?: string;
   status: StudentStatus;
+  schoolId?: string;
   notes?: string;
   guardians: Array<{ guardianId: string; relationship: Relationship }>;
   address?: Omit<
     StudentAddress,
     "latitude" | "longitude" | "geocodingStatus" | "geocodingError"
   >;
+}
+export interface MapSchool {
+  id: string;
+  name: string;
+  mapColor: string;
+  postalCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  latitude: number | null;
+  longitude: number | null;
+  studentCount: number;
 }
 export interface StudentMapItem {
   id: string;
@@ -84,21 +102,37 @@ export interface StudentMapItem {
   order: number;
   address: string | null;
   addressDetails: StudentAddress | null;
+  schoolId?: string;
+  school?: { id: string; name: string; mapColor: string };
 }
 export interface MapVehicle {
   id: string;
   plate: string;
   brand: string;
   model: string;
-  baseAddress: string | null;
-  baseLatitude: number | null;
-  baseLongitude: number | null;
+  startPostalCode?: string;
+  startStreet?: string;
+  startNumber?: string;
+  startComplement?: string;
+  startNeighborhood?: string;
+  startCity?: string;
+  startState?: string;
+  startLatitude: number | null;
+  startLongitude: number | null;
   defaultDriver: { id: string; name: string } | null;
 }
 export interface StudentMapResponse {
   students: StudentMapItem[];
   vehicles: MapVehicle[];
   selectedVehicle: MapVehicle | null;
+  schools: MapSchool[];
+  waypoints: Array<{
+    id: string;
+    type: "vehicle_start" | "student" | "school";
+    latitude: number;
+    longitude: number;
+    schoolId?: string;
+  }>;
 }
 const query = (values: Record<string, string | number | undefined>) => {
   const p = new URLSearchParams();

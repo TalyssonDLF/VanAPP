@@ -98,6 +98,15 @@ model Vehicle {
   baseAddress           String?
   baseLatitude          Float?
   baseLongitude         Float?
+  startPostalCode       String?
+  startStreet           String?
+  startNumber           String?
+  startComplement       String?
+  startNeighborhood     String?
+  startCity             String?
+  startState            String?
+  startLatitude         Float?
+  startLongitude        Float?
 
   @@index([status])
   @@index([brand, model])
@@ -161,9 +170,32 @@ model Student {
   financialTransactions FinancialTransaction[]
   studentBillings       StudentBilling[]
   address               StudentAddress?
+  schoolId              String?
+  school                School?                @relation(fields: [schoolId], references: [id], onDelete: SetNull)
 
   @@index([name])
   @@index([status])
+  @@index([schoolId])
+}
+
+model School {
+  id           String    @id @default(cuid())
+  name         String
+  mapColor     String    @default("#2563EB")
+  postalCode   String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  students     Student[]
+
+  @@index([name])
 }
 
 enum GeocodingStatus {

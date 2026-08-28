@@ -1,7 +1,809 @@
-import{useCallback,useEffect,useState}from'react';import{Link,useNavigate,useParams}from'react-router-dom';import{toast}from'sonner';import{MoreHorizontal,Plus}from'lucide-react';import{useForm}from'react-hook-form';import{zodResolver}from'@hookform/resolvers/zod';import{z}from'zod';import{vehiclesApi,type DocumentInput,type Vehicle,type VehicleDocument,type VehicleInput,type VehicleStatus,type VehicleType}from'@/lib/api/vehicles';import{driversApi,type Driver}from'@/lib/api/drivers';import{PageHeader,Pagination,LoadingRows,ErrorState}from'@/components/resource-layout';import{Button}from'@/components/ui/button';import{Input}from'@/components/ui/input';import{Label}from'@/components/ui/label';import{Select}from'@/components/ui/select';import{Badge}from'@/components/ui/badge';import{Textarea}from'@/components/ui/textarea';import{Separator}from'@/components/ui/separator';import{AlertDialog}from'@/components/ui/alert-dialog';
-const types:Record<VehicleType,string>={VAN:'Van',MINIBUS:'Micro-ônibus',BUS:'Ônibus',OTHER:'Outro'},statuses:Record<VehicleStatus,string>={ACTIVE:'Ativo',INACTIVE:'Inativo',MAINTENANCE:'Em manutenção'},docs={REGISTRATION:'Licenciamento / registro',INSURANCE:'Seguro',INSPECTION:'Vistoria',AUTHORIZATION:'Autorização',OTHER:'Outro'}as const,docStatus={VALID:'Válido',EXPIRING_SOON:'Vence em breve',EXPIRED:'Vencido',NO_EXPIRY:'Sem validade informada'}as const;const date=(v:string)=>new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC'}).format(new Date(v));
-export function VehiclesList(){const[search,setSearch]=useState(''),[status,setStatus]=useState(''),[type,setType]=useState(''),[documentStatus,setDoc]=useState(''),[page,setPage]=useState(1),[result,setResult]=useState<Awaited<ReturnType<typeof vehiclesApi.list>>>(),[error,setError]=useState(false),[deleting,setDeleting]=useState<Vehicle>();const load=useCallback(()=>{setError(false);vehiclesApi.list({search,status,type,documentStatus,page,pageSize:20}).then(setResult).catch(()=>setError(true))},[search,status,type,documentStatus,page]);useEffect(()=>{const t=setTimeout(load,250);return()=>clearTimeout(t)},[load]);const remove=async()=>{if(!deleting)return;await vehiclesApi.remove(deleting.id);toast.success('Veículo excluído.');setDeleting(undefined);load()};return <><PageHeader title="Veículos" description="Gerencie os veículos da operação." action={<Button asChild><Link to="/veiculos/novo"><Plus size={16}/>Novo veículo</Link></Button>}/><div className="mt-6 grid gap-3 md:grid-cols-[1fr_160px_160px_210px]"><Input aria-label="Buscar veículo" placeholder="Buscar veículo..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/><Select aria-label="Status" value={status} onChange={e=>setStatus(e.target.value)}><option value="">Status: Todos</option>{Object.entries(statuses).map(([v,l])=><option value={v} key={v}>{l}</option>)}</Select><Select aria-label="Tipo" value={type} onChange={e=>setType(e.target.value)}><option value="">Tipo: Todos</option>{Object.entries(types).map(([v,l])=><option value={v} key={v}>{l}</option>)}</Select><Select aria-label="Documentação" value={documentStatus} onChange={e=>setDoc(e.target.value)}><option value="">Documentação: Todos</option><option value="EXPIRED">Com documento vencido</option><option value="EXPIRING_SOON">Com documento vencendo</option><option value="REGULAR">Sem pendências conhecidas</option></Select></div>{error?<ErrorState retry={load}/>:!result?<LoadingRows/>:!result.data.length?<div className="mt-8 border-y py-12 text-center"><p className="font-medium">Nenhum veículo cadastrado.</p><p className="text-sm text-neutral-500">Cadastre o primeiro veículo da operação.</p><Button asChild className="mt-4"><Link to="/veiculos/novo">Novo veículo</Link></Button></div>:<><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="border-y bg-neutral-50"><tr>{['Veículo','Placa','Capacidade','Motorista padrão','Status','Documentação',''].map(x=><th className="px-3 py-3 font-medium" key={x}>{x}</th>)}</tr></thead><tbody>{result.data.map(v=><tr className="border-b" key={v.id}><td className="px-3 py-3"><Link className="font-medium" to={`/veiculos/${v.id}`}>{v.brand} {v.model}</Link><div className="text-neutral-500">{v.modelYear??'—'}</div></td><td className="px-3 font-mono">{v.plate}</td><td className="px-3">{v.passengerCapacity} passageiros</td><td className="px-3">{v.defaultDriver?.name??'—'}</td><td className="px-3"><Badge variant="outline">{statuses[v.status]}</Badge></td><td className="px-3">{v.documentSummary?.expired?`${v.documentSummary.expired} vencido(s)`:v.documentSummary?.expiringSoon?`${v.documentSummary.expiringSoon} vencendo`:'Regular'}</td><td><details className="relative"><summary className="flex h-9 w-9 cursor-pointer items-center justify-center"><MoreHorizontal size={18}/></summary><div className="absolute right-0 z-10 w-36 rounded border bg-white p-1 shadow"><Link className="block p-2" to={`/veiculos/${v.id}`}>Visualizar</Link><Link className="block p-2" to={`/veiculos/${v.id}/editar`}>Editar</Link><button className="w-full p-2 text-left text-red-700" onClick={()=>setDeleting(v)}>Excluir</button></div></details></td></tr>)}</tbody></table></div><Pagination {...result.pagination} onPage={setPage}/></>}<AlertDialog open={!!deleting} title="Excluir veículo?" description="O veículo e seus documentos serão excluídos definitivamente." onCancel={()=>setDeleting(undefined)} onConfirm={()=>void remove()}/></>}
-const schema=z.object({plate:z.string().transform(v=>v.replace(/[^a-z0-9]/gi,'').toUpperCase()).refine(v=>/^(?:[A-Z]{3}\d{4}|[A-Z]{3}\d[A-Z]\d{2})$/.test(v),'Informe uma placa válida.'),renavam:z.string().refine(v=>!v||v.replace(/\D/g,'').length===11,'Use 11 dígitos.'),brand:z.string().trim().min(2),model:z.string().trim().min(1),manufactureYear:z.string(),modelYear:z.string(),color:z.string(),passengerCapacity:z.number().int().min(1).max(100),type:z.enum(['VAN','MINIBUS','BUS','OTHER']),status:z.enum(['ACTIVE','INACTIVE','MAINTENANCE']),currentMileage:z.string(),defaultDriverId:z.string(),notes:z.string().max(2000)});type Values=z.infer<typeof schema>;const Field=({label,error,children}:{label:string,error?:string,children:React.ReactNode})=><div className="space-y-2"><Label>{label}</Label>{children}{error&&<p className="text-sm text-red-600">{error}</p>}</div>;
-export function VehicleForm(){const{id}=useParams(),nav=useNavigate(),[drivers,setDrivers]=useState<Driver[]>([]);const{register,handleSubmit,reset,formState:{errors,isSubmitting}}=useForm<Values>({resolver:zodResolver(schema),defaultValues:{plate:'',renavam:'',brand:'',model:'',manufactureYear:'',modelYear:'',color:'',passengerCapacity:15,type:'VAN',status:'ACTIVE',currentMileage:'',defaultDriverId:'',notes:''}});useEffect(()=>{driversApi.list({status:'ACTIVE',page:1,pageSize:100}).then(r=>setDrivers(r.data));if(id)vehiclesApi.one(id).then(v=>{if(v.defaultDriver&&v.defaultDriver.status==='INACTIVE')setDrivers(d=>[...d,v.defaultDriver as unknown as Driver]);reset({plate:v.plate,renavam:v.renavam??'',brand:v.brand,model:v.model,manufactureYear:String(v.manufactureYear??''),modelYear:String(v.modelYear??''),color:v.color??'',passengerCapacity:v.passengerCapacity,type:v.type,status:v.status,currentMileage:String(v.currentMileage??''),defaultDriverId:v.defaultDriverId??'',notes:v.notes??''})})},[id,reset]);const submit=async(v:Values)=>{const data:VehicleInput={plate:v.plate,renavam:v.renavam.replace(/\D/g,'')||undefined,brand:v.brand,model:v.model,manufactureYear:v.manufactureYear?Number(v.manufactureYear):undefined,modelYear:v.modelYear?Number(v.modelYear):undefined,color:v.color||undefined,passengerCapacity:v.passengerCapacity,type:v.type,status:v.status,currentMileage:v.currentMileage?Number(v.currentMileage):undefined,defaultDriverId:v.defaultDriverId||undefined,notes:v.notes||undefined};const saved=id?await vehiclesApi.update(id,data):await vehiclesApi.create(data);toast.success(id?'Veículo atualizado.':'Veículo cadastrado.');nav(`/veiculos/${saved.id}`)};return <><PageHeader title={id?'Editar veículo':'Novo veículo'} description="Informe os dados de identificação e operação."/><form className="mt-7 max-w-4xl space-y-7" onSubmit={handleSubmit(v=>void submit(v).catch(e=>toast.error(e instanceof Error?e.message:'Não foi possível salvar.')))}><section><h2 className="font-semibold">Identificação</h2><div className="mt-4 grid gap-5 sm:grid-cols-3"><Field label="Placa" error={errors.plate?.message}><Input {...register('plate')} autoFocus/></Field><Field label="RENAVAM (opcional)" error={errors.renavam?.message}><Input inputMode="numeric" {...register('renavam')}/></Field><Field label="Tipo"><Select {...register('type')}>{Object.entries(types).map(([v,l])=><option value={v} key={v}>{l}</option>)}</Select></Field></div></section><Separator/><section><h2 className="font-semibold">Veículo</h2><div className="mt-4 grid gap-5 sm:grid-cols-2"><Field label="Marca"><Input {...register('brand')}/></Field><Field label="Modelo"><Input {...register('model')}/></Field><Field label="Ano de fabricação"><Input type="number" {...register('manufactureYear')}/></Field><Field label="Ano do modelo"><Input type="number" {...register('modelYear')}/></Field><Field label="Cor"><Input {...register('color')}/></Field></div></section><Separator/><section><h2 className="font-semibold">Operação</h2><div className="mt-4 grid gap-5 sm:grid-cols-2"><Field label="Capacidade de passageiros"><Input type="number" {...register('passengerCapacity',{valueAsNumber:true})}/></Field><Field label="Quilometragem atual"><Input type="number" {...register('currentMileage')}/></Field><Field label="Motorista padrão"><Select {...register('defaultDriverId')}><option value="">Sem motorista padrão</option>{drivers.map(d=><option value={d.id} key={d.id}>{d.name}{d.status==='INACTIVE'?' — Inativo':''}</option>)}</Select></Field><Field label="Status"><Select {...register('status')}>{Object.entries(statuses).map(([v,l])=><option value={v} key={v}>{l}</option>)}</Select></Field></div></section><Separator/><Field label="Observações"><Textarea rows={4} {...register('notes')}/></Field><div className="flex justify-end gap-2 border-t pt-5"><Button type="button" variant="outline" onClick={()=>nav(id?`/veiculos/${id}`:'/veiculos')}>Cancelar</Button><Button disabled={isSubmitting}>Salvar veículo</Button></div></form></>}
-function DocumentModal({vehicle,document,onClose,onSaved}:{vehicle:string;document?:VehicleDocument;onClose:()=>void;onSaved:()=>void}){const[d,setD]=useState<DocumentInput>({type:document?.type??'REGISTRATION',identifier:document?.identifier??'',issuedAt:document?.issuedAt?.slice(0,10)??'',expiresAt:document?.expiresAt?.slice(0,10)??'',notes:document?.notes??''});const save=async()=>{if(document)await vehiclesApi.updateDocument(vehicle,document.id,d);else await vehiclesApi.addDocument(vehicle,d);toast.success('Documento salvo.');onSaved()};return <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><form className="max-h-full w-full max-w-lg overflow-y-auto rounded-md bg-white p-6 shadow-xl" onSubmit={e=>{e.preventDefault();void save()}}><h2 className="text-lg font-semibold">{document?'Editar':'Adicionar'} documento</h2><div className="mt-5 grid gap-4"><Field label="Tipo"><Select value={d.type} onChange={e=>setD({...d,type:e.target.value as DocumentInput['type']})}>{Object.entries(docs).map(([v,l])=><option value={v} key={v}>{l}</option>)}</Select></Field><Field label="Identificador / número"><Input value={d.identifier} onChange={e=>setD({...d,identifier:e.target.value})}/></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Data de emissão"><Input type="date" value={d.issuedAt} onChange={e=>setD({...d,issuedAt:e.target.value})}/></Field><Field label="Validade"><Input type="date" value={d.expiresAt} onChange={e=>setD({...d,expiresAt:e.target.value})}/></Field></div><Field label="Observações"><Textarea value={d.notes} onChange={e=>setD({...d,notes:e.target.value})}/></Field></div><div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancelar</Button><Button>Salvar documento</Button></div></form></div>}
-const Info=({label,value}:{label:string,value:string})=><div><dt className="text-xs font-medium uppercase text-neutral-500">{label}</dt><dd className="mt-1 text-sm">{value}</dd></div>;export function VehicleDetail(){const{id}=useParams(),nav=useNavigate(),[v,setV]=useState<Vehicle>(),[error,setError]=useState(false),[modal,setModal]=useState<VehicleDocument|null|undefined>(),[deleteDoc,setDeleteDoc]=useState<VehicleDocument>(),[deleting,setDeleting]=useState(false);const load=useCallback(()=>id&&vehiclesApi.one(id).then(setV).catch(()=>setError(true)),[id]);useEffect(()=>{void load()},[load]);if(error)return <ErrorState retry={()=>void load()}/>;if(!v)return <LoadingRows/>;const remove=async()=>{await vehiclesApi.remove(v.id);toast.success('Veículo excluído.');nav('/veiculos')};const removeDoc=async()=>{if(!deleteDoc)return;await vehiclesApi.removeDocument(v.id,deleteDoc.id);setDeleteDoc(undefined);toast.success('Documento excluído.');load()};return <><PageHeader title={`${v.brand} ${v.model}`} action={<div className="flex gap-2"><Button variant="outline" onClick={()=>setDeleting(true)}>Excluir</Button><Button asChild><Link to={`/veiculos/${v.id}/editar`}>Editar</Link></Button></div>}/><Badge className="mt-3" variant="outline">{statuses[v.status]}</Badge><section className="mt-7 max-w-4xl"><h2 className="font-semibold">Identificação</h2><dl className="mt-4 grid gap-5 border-y py-5 sm:grid-cols-3"><Info label="Placa" value={v.plate}/><Info label="RENAVAM" value={v.renavam??'—'}/><Info label="Tipo" value={types[v.type]}/></dl></section><section className="mt-8 max-w-4xl"><h2 className="font-semibold">Informações</h2><dl className="mt-4 grid gap-5 border-y py-5 sm:grid-cols-3"><Info label="Ano fabricação" value={String(v.manufactureYear??'—')}/><Info label="Ano modelo" value={String(v.modelYear??'—')}/><Info label="Cor" value={v.color??'—'}/><Info label="Capacidade" value={`${v.passengerCapacity} passageiros`}/><Info label="Quilometragem" value={v.currentMileage!==undefined?`${v.currentMileage.toLocaleString('pt-BR')} km`:'—'}/></dl></section><section className="mt-8"><h2 className="font-semibold">Motorista padrão</h2><p className="mt-3 text-sm">{v.defaultDriver?`${v.defaultDriver.name}${v.defaultDriver.status==='INACTIVE'?' — Inativo':''}`:'—'}</p></section><section className="mt-8"><div className="flex items-center justify-between"><h2 className="font-semibold">Documentação</h2><Button onClick={()=>setModal(null)}>Adicionar</Button></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="border-y bg-neutral-50"><tr>{['Tipo','Número','Validade','Situação','Ações'].map(x=><th className="p-3 font-medium" key={x}>{x}</th>)}</tr></thead><tbody>{v.documents.length?v.documents.map(d=><tr className="border-b" key={d.id}><td className="p-3">{docs[d.type]}</td><td>{d.identifier??'—'}</td><td>{d.expiresAt?date(d.expiresAt):'—'}</td><td><Badge variant={d.documentStatus==='EXPIRED'?'destructive':'outline'}>{docStatus[d.documentStatus]}</Badge></td><td><Button variant="ghost" onClick={()=>setModal(d)}>Editar</Button><Button variant="ghost" onClick={()=>setDeleteDoc(d)}>Excluir</Button></td></tr>):<tr><td className="p-4 text-neutral-500" colSpan={5}>Nenhum documento cadastrado.</td></tr>}</tbody></table></div></section><section className="mt-8"><h2 className="font-semibold">Observações</h2><p className="mt-3 whitespace-pre-wrap text-sm">{v.notes??'—'}</p></section>{modal!==undefined&&<DocumentModal vehicle={v.id} document={modal??undefined} onClose={()=>setModal(undefined)} onSaved={()=>{setModal(undefined);load()}}/>}<AlertDialog open={deleting} title="Excluir veículo?" description="Esta ação também exclui seus documentos." onCancel={()=>setDeleting(false)} onConfirm={()=>void remove()}/><AlertDialog open={!!deleteDoc} title="Excluir documento?" description="Esta ação é definitiva." onCancel={()=>setDeleteDoc(undefined)} onConfirm={()=>void removeDoc()}/></>}
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { MoreHorizontal, Plus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  vehiclesApi,
+  type DocumentInput,
+  type Vehicle,
+  type VehicleDocument,
+  type VehicleInput,
+  type VehicleStatus,
+  type VehicleType,
+} from "@/lib/api/vehicles";
+import { driversApi, type Driver } from "@/lib/api/drivers";
+import {
+  PageHeader,
+  Pagination,
+  LoadingRows,
+  ErrorState,
+} from "@/components/resource-layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+const types: Record<VehicleType, string> = {
+    VAN: "Van",
+    MINIBUS: "Micro-ônibus",
+    BUS: "Ônibus",
+    OTHER: "Outro",
+  },
+  statuses: Record<VehicleStatus, string> = {
+    ACTIVE: "Ativo",
+    INACTIVE: "Inativo",
+    MAINTENANCE: "Em manutenção",
+  },
+  docs = {
+    REGISTRATION: "Licenciamento / registro",
+    INSURANCE: "Seguro",
+    INSPECTION: "Vistoria",
+    AUTHORIZATION: "Autorização",
+    OTHER: "Outro",
+  } as const,
+  docStatus = {
+    VALID: "Válido",
+    EXPIRING_SOON: "Vence em breve",
+    EXPIRED: "Vencido",
+    NO_EXPIRY: "Sem validade informada",
+  } as const;
+const date = (v: string) =>
+  new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(v));
+export function VehiclesList() {
+  const [search, setSearch] = useState(""),
+    [status, setStatus] = useState(""),
+    [type, setType] = useState(""),
+    [documentStatus, setDoc] = useState(""),
+    [page, setPage] = useState(1),
+    [result, setResult] =
+      useState<Awaited<ReturnType<typeof vehiclesApi.list>>>(),
+    [error, setError] = useState(false),
+    [deleting, setDeleting] = useState<Vehicle>();
+  const load = useCallback(() => {
+    setError(false);
+    vehiclesApi
+      .list({ search, status, type, documentStatus, page, pageSize: 20 })
+      .then(setResult)
+      .catch(() => setError(true));
+  }, [search, status, type, documentStatus, page]);
+  useEffect(() => {
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
+  }, [load]);
+  const remove = async () => {
+    if (!deleting) return;
+    await vehiclesApi.remove(deleting.id);
+    toast.success("Veículo excluído.");
+    setDeleting(undefined);
+    load();
+  };
+  return (
+    <>
+      <PageHeader
+        title="Veículos"
+        description="Gerencie os veículos da operação."
+        action={
+          <Button asChild>
+            <Link to="/veiculos/novo">
+              <Plus size={16} />
+              Novo veículo
+            </Link>
+          </Button>
+        }
+      />
+      <div className="mt-6 grid gap-3 md:grid-cols-[1fr_160px_160px_210px]">
+        <Input
+          aria-label="Buscar veículo"
+          placeholder="Buscar veículo..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+        <Select
+          aria-label="Status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="">Status: Todos</option>
+          {Object.entries(statuses).map(([v, l]) => (
+            <option value={v} key={v}>
+              {l}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Tipo"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="">Tipo: Todos</option>
+          {Object.entries(types).map(([v, l]) => (
+            <option value={v} key={v}>
+              {l}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Documentação"
+          value={documentStatus}
+          onChange={(e) => setDoc(e.target.value)}
+        >
+          <option value="">Documentação: Todos</option>
+          <option value="EXPIRED">Com documento vencido</option>
+          <option value="EXPIRING_SOON">Com documento vencendo</option>
+          <option value="REGULAR">Sem pendências conhecidas</option>
+        </Select>
+      </div>
+      {error ? (
+        <ErrorState retry={load} />
+      ) : !result ? (
+        <LoadingRows />
+      ) : !result.data.length ? (
+        <div className="mt-8 border-y py-12 text-center">
+          <p className="font-medium">Nenhum veículo cadastrado.</p>
+          <p className="text-sm text-neutral-500">
+            Cadastre o primeiro veículo da operação.
+          </p>
+          <Button asChild className="mt-4">
+            <Link to="/veiculos/novo">Novo veículo</Link>
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="border-y bg-neutral-50">
+                <tr>
+                  {[
+                    "Veículo",
+                    "Placa",
+                    "Capacidade",
+                    "Motorista padrão",
+                    "Status",
+                    "Documentação",
+                    "",
+                  ].map((x) => (
+                    <th className="px-3 py-3 font-medium" key={x}>
+                      {x}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.data.map((v) => (
+                  <tr className="border-b" key={v.id}>
+                    <td className="px-3 py-3">
+                      <Link className="font-medium" to={`/veiculos/${v.id}`}>
+                        {v.brand} {v.model}
+                      </Link>
+                      <div className="text-neutral-500">
+                        {v.modelYear ?? "—"}
+                      </div>
+                    </td>
+                    <td className="px-3 font-mono">{v.plate}</td>
+                    <td className="px-3">{v.passengerCapacity} passageiros</td>
+                    <td className="px-3">{v.defaultDriver?.name ?? "—"}</td>
+                    <td className="px-3">
+                      <Badge variant="outline">{statuses[v.status]}</Badge>
+                    </td>
+                    <td className="px-3">
+                      {v.documentSummary?.expired
+                        ? `${v.documentSummary.expired} vencido(s)`
+                        : v.documentSummary?.expiringSoon
+                          ? `${v.documentSummary.expiringSoon} vencendo`
+                          : "Regular"}
+                    </td>
+                    <td>
+                      <details className="relative">
+                        <summary className="flex h-9 w-9 cursor-pointer items-center justify-center">
+                          <MoreHorizontal size={18} />
+                        </summary>
+                        <div className="absolute right-0 z-10 w-36 rounded border bg-white p-1 shadow">
+                          <Link className="block p-2" to={`/veiculos/${v.id}`}>
+                            Visualizar
+                          </Link>
+                          <Link
+                            className="block p-2"
+                            to={`/veiculos/${v.id}/editar`}
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            className="w-full p-2 text-left text-red-700"
+                            onClick={() => setDeleting(v)}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination {...result.pagination} onPage={setPage} />
+        </>
+      )}
+      <AlertDialog
+        open={!!deleting}
+        title="Excluir veículo?"
+        description="O veículo e seus documentos serão excluídos definitivamente."
+        onCancel={() => setDeleting(undefined)}
+        onConfirm={() => void remove()}
+      />
+    </>
+  );
+}
+const schema = z.object({
+  plate: z
+    .string()
+    .transform((v) => v.replace(/[^a-z0-9]/gi, "").toUpperCase())
+    .refine(
+      (v) => /^(?:[A-Z]{3}\d{4}|[A-Z]{3}\d[A-Z]\d{2})$/.test(v),
+      "Informe uma placa válida.",
+    ),
+  renavam: z
+    .string()
+    .refine((v) => !v || v.replace(/\D/g, "").length === 11, "Use 11 dígitos."),
+  brand: z.string().trim().min(2),
+  model: z.string().trim().min(1),
+  manufactureYear: z.string(),
+  modelYear: z.string(),
+  color: z.string(),
+  passengerCapacity: z.number().int().min(1).max(100),
+  type: z.enum(["VAN", "MINIBUS", "BUS", "OTHER"]),
+  status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
+  currentMileage: z.string(),
+  defaultDriverId: z.string(),
+  notes: z.string().max(2000),
+  startAddress: z.object({
+    postalCode: z.string(),
+    street: z.string(),
+    number: z.string(),
+    complement: z.string(),
+    neighborhood: z.string(),
+    city: z.string(),
+    state: z.string(),
+  }),
+});
+type Values = z.infer<typeof schema>;
+const Field = ({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) => (
+  <div className="space-y-2">
+    <Label>{label}</Label>
+    {children}
+    {error && <p className="text-sm text-red-600">{error}</p>}
+  </div>
+);
+export function VehicleForm() {
+  const { id } = useParams(),
+    nav = useNavigate(),
+    [drivers, setDrivers] = useState<Driver[]>([]);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      plate: "",
+      renavam: "",
+      brand: "",
+      model: "",
+      manufactureYear: "",
+      modelYear: "",
+      color: "",
+      passengerCapacity: 15,
+      type: "VAN",
+      status: "ACTIVE",
+      currentMileage: "",
+      defaultDriverId: "",
+      notes: "",
+      startAddress: {
+        postalCode: "",
+        street: "",
+        number: "",
+        complement: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+      },
+    },
+  });
+  useEffect(() => {
+    driversApi
+      .list({ status: "ACTIVE", page: 1, pageSize: 100 })
+      .then((r) => setDrivers(r.data));
+    if (id)
+      vehiclesApi.one(id).then((v) => {
+        if (v.defaultDriver && v.defaultDriver.status === "INACTIVE")
+          setDrivers((d) => [...d, v.defaultDriver as unknown as Driver]);
+        reset({
+          plate: v.plate,
+          renavam: v.renavam ?? "",
+          brand: v.brand,
+          model: v.model,
+          manufactureYear: String(v.manufactureYear ?? ""),
+          modelYear: String(v.modelYear ?? ""),
+          color: v.color ?? "",
+          passengerCapacity: v.passengerCapacity,
+          type: v.type,
+          status: v.status,
+          currentMileage: String(v.currentMileage ?? ""),
+          defaultDriverId: v.defaultDriverId ?? "",
+          notes: v.notes ?? "",
+          startAddress: {
+            postalCode: v.startPostalCode ?? "",
+            street: v.startStreet ?? "",
+            number: v.startNumber ?? "",
+            complement: v.startComplement ?? "",
+            neighborhood: v.startNeighborhood ?? "",
+            city: v.startCity ?? "",
+            state: v.startState ?? "",
+          },
+        });
+      });
+  }, [id, reset]);
+  const submit = async (v: Values) => {
+    const data: VehicleInput = {
+      plate: v.plate,
+      renavam: v.renavam.replace(/\D/g, "") || undefined,
+      brand: v.brand,
+      model: v.model,
+      manufactureYear: v.manufactureYear
+        ? Number(v.manufactureYear)
+        : undefined,
+      modelYear: v.modelYear ? Number(v.modelYear) : undefined,
+      color: v.color || undefined,
+      passengerCapacity: v.passengerCapacity,
+      type: v.type,
+      status: v.status,
+      currentMileage: v.currentMileage ? Number(v.currentMileage) : undefined,
+      defaultDriverId: v.defaultDriverId || undefined,
+      notes: v.notes || undefined,
+      startAddress:
+        v.startAddress.street && v.startAddress.city && v.startAddress.state
+          ? v.startAddress
+          : undefined,
+    };
+    const saved = id
+      ? await vehiclesApi.update(id, data)
+      : await vehiclesApi.create(data);
+    toast.success(id ? "Veículo atualizado." : "Veículo cadastrado.");
+    nav(`/veiculos/${saved.id}`);
+  };
+  return (
+    <>
+      <PageHeader
+        title={id ? "Editar veículo" : "Novo veículo"}
+        description="Informe os dados de identificação e operação."
+      />
+      <form
+        className="mt-7 max-w-4xl space-y-7"
+        onSubmit={handleSubmit(
+          (v) =>
+            void submit(v).catch((e) =>
+              toast.error(
+                e instanceof Error ? e.message : "Não foi possível salvar.",
+              ),
+            ),
+        )}
+      >
+        <section>
+          <h2 className="font-semibold">Identificação</h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-3">
+            <Field label="Placa" error={errors.plate?.message}>
+              <Input {...register("plate")} autoFocus />
+            </Field>
+            <Field label="RENAVAM (opcional)" error={errors.renavam?.message}>
+              <Input inputMode="numeric" {...register("renavam")} />
+            </Field>
+            <Field label="Tipo">
+              <Select {...register("type")}>
+                {Object.entries(types).map(([v, l]) => (
+                  <option value={v} key={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </section>
+        <Separator />
+        <section>
+          <h2 className="font-semibold">Veículo</h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <Field label="Marca">
+              <Input {...register("brand")} />
+            </Field>
+            <Field label="Modelo">
+              <Input {...register("model")} />
+            </Field>
+            <Field label="Ano de fabricação">
+              <Input type="number" {...register("manufactureYear")} />
+            </Field>
+            <Field label="Ano do modelo">
+              <Input type="number" {...register("modelYear")} />
+            </Field>
+            <Field label="Cor">
+              <Input {...register("color")} />
+            </Field>
+          </div>
+        </section>
+        <Separator />
+        <section>
+          <h2 className="font-semibold">Operação</h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <Field label="Capacidade de passageiros">
+              <Input
+                type="number"
+                {...register("passengerCapacity", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field label="Quilometragem atual">
+              <Input type="number" {...register("currentMileage")} />
+            </Field>
+            <Field label="Motorista padrão">
+              <Select {...register("defaultDriverId")}>
+                <option value="">Sem motorista padrão</option>
+                {drivers.map((d) => (
+                  <option value={d.id} key={d.id}>
+                    {d.name}
+                    {d.status === "INACTIVE" ? " — Inativo" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select {...register("status")}>
+                {Object.entries(statuses).map(([v, l]) => (
+                  <option value={v} key={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </section>
+        <Separator />
+        <section>
+          <h2 className="font-semibold">Ponto inicial da van</h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            {(
+              [
+                ["postalCode", "CEP"],
+                ["street", "Rua / Logradouro"],
+                ["number", "Número"],
+                ["complement", "Complemento"],
+                ["neighborhood", "Bairro"],
+                ["city", "Cidade"],
+                ["state", "Estado"],
+              ] as const
+            ).map(([name, label]) => (
+              <Field key={name} label={label}>
+                <Input
+                  maxLength={name === "state" ? 2 : undefined}
+                  {...register(`startAddress.${name}`)}
+                />
+              </Field>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-neutral-500">
+            As coordenadas são geradas automaticamente ao salvar.
+          </p>
+        </section>
+        <Separator />
+        <Field label="Observações">
+          <Textarea rows={4} {...register("notes")} />
+        </Field>
+        <div className="flex justify-end gap-2 border-t pt-5">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => nav(id ? `/veiculos/${id}` : "/veiculos")}
+          >
+            Cancelar
+          </Button>
+          <Button disabled={isSubmitting}>Salvar veículo</Button>
+        </div>
+      </form>
+    </>
+  );
+}
+function DocumentModal({
+  vehicle,
+  document,
+  onClose,
+  onSaved,
+}: {
+  vehicle: string;
+  document?: VehicleDocument;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [d, setD] = useState<DocumentInput>({
+    type: document?.type ?? "REGISTRATION",
+    identifier: document?.identifier ?? "",
+    issuedAt: document?.issuedAt?.slice(0, 10) ?? "",
+    expiresAt: document?.expiresAt?.slice(0, 10) ?? "",
+    notes: document?.notes ?? "",
+  });
+  const save = async () => {
+    if (document) await vehiclesApi.updateDocument(vehicle, document.id, d);
+    else await vehiclesApi.addDocument(vehicle, d);
+    toast.success("Documento salvo.");
+    onSaved();
+  };
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+    >
+      <form
+        className="max-h-full w-full max-w-lg overflow-y-auto rounded-md bg-white p-6 shadow-xl"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <h2 className="text-lg font-semibold">
+          {document ? "Editar" : "Adicionar"} documento
+        </h2>
+        <div className="mt-5 grid gap-4">
+          <Field label="Tipo">
+            <Select
+              value={d.type}
+              onChange={(e) =>
+                setD({ ...d, type: e.target.value as DocumentInput["type"] })
+              }
+            >
+              {Object.entries(docs).map(([v, l]) => (
+                <option value={v} key={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Identificador / número">
+            <Input
+              value={d.identifier}
+              onChange={(e) => setD({ ...d, identifier: e.target.value })}
+            />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Data de emissão">
+              <Input
+                type="date"
+                value={d.issuedAt}
+                onChange={(e) => setD({ ...d, issuedAt: e.target.value })}
+              />
+            </Field>
+            <Field label="Validade">
+              <Input
+                type="date"
+                value={d.expiresAt}
+                onChange={(e) => setD({ ...d, expiresAt: e.target.value })}
+              />
+            </Field>
+          </div>
+          <Field label="Observações">
+            <Textarea
+              value={d.notes}
+              onChange={(e) => setD({ ...d, notes: e.target.value })}
+            />
+          </Field>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button>Salvar documento</Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+const Info = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <dt className="text-xs font-medium uppercase text-neutral-500">{label}</dt>
+    <dd className="mt-1 text-sm">{value}</dd>
+  </div>
+);
+export function VehicleDetail() {
+  const { id } = useParams(),
+    nav = useNavigate(),
+    [v, setV] = useState<Vehicle>(),
+    [error, setError] = useState(false),
+    [modal, setModal] = useState<VehicleDocument | null | undefined>(),
+    [deleteDoc, setDeleteDoc] = useState<VehicleDocument>(),
+    [deleting, setDeleting] = useState(false);
+  const load = useCallback(
+    () =>
+      id &&
+      vehiclesApi
+        .one(id)
+        .then(setV)
+        .catch(() => setError(true)),
+    [id],
+  );
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (error) return <ErrorState retry={() => void load()} />;
+  if (!v) return <LoadingRows />;
+  const remove = async () => {
+    await vehiclesApi.remove(v.id);
+    toast.success("Veículo excluído.");
+    nav("/veiculos");
+  };
+  const removeDoc = async () => {
+    if (!deleteDoc) return;
+    await vehiclesApi.removeDocument(v.id, deleteDoc.id);
+    setDeleteDoc(undefined);
+    toast.success("Documento excluído.");
+    load();
+  };
+  return (
+    <>
+      <PageHeader
+        title={`${v.brand} ${v.model}`}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDeleting(true)}>
+              Excluir
+            </Button>
+            <Button asChild>
+              <Link to={`/veiculos/${v.id}/editar`}>Editar</Link>
+            </Button>
+          </div>
+        }
+      />
+      <Badge className="mt-3" variant="outline">
+        {statuses[v.status]}
+      </Badge>
+      <section className="mt-7 max-w-4xl">
+        <h2 className="font-semibold">Identificação</h2>
+        <dl className="mt-4 grid gap-5 border-y py-5 sm:grid-cols-3">
+          <Info label="Placa" value={v.plate} />
+          <Info label="RENAVAM" value={v.renavam ?? "—"} />
+          <Info label="Tipo" value={types[v.type]} />
+        </dl>
+      </section>
+      <section className="mt-8 max-w-4xl">
+        <h2 className="font-semibold">Informações</h2>
+        <dl className="mt-4 grid gap-5 border-y py-5 sm:grid-cols-3">
+          <Info
+            label="Ano fabricação"
+            value={String(v.manufactureYear ?? "—")}
+          />
+          <Info label="Ano modelo" value={String(v.modelYear ?? "—")} />
+          <Info label="Cor" value={v.color ?? "—"} />
+          <Info
+            label="Capacidade"
+            value={`${v.passengerCapacity} passageiros`}
+          />
+          <Info
+            label="Quilometragem"
+            value={
+              v.currentMileage !== undefined
+                ? `${v.currentMileage.toLocaleString("pt-BR")} km`
+                : "—"
+            }
+          />
+        </dl>
+      </section>
+      <section className="mt-8">
+        <h2 className="font-semibold">Motorista padrão</h2>
+        <p className="mt-3 text-sm">
+          {v.defaultDriver
+            ? `${v.defaultDriver.name}${v.defaultDriver.status === "INACTIVE" ? " — Inativo" : ""}`
+            : "—"}
+        </p>
+      </section>
+      <section className="mt-8">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Documentação</h2>
+          <Button onClick={() => setModal(null)}>Adicionar</Button>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left text-sm">
+            <thead className="border-y bg-neutral-50">
+              <tr>
+                {["Tipo", "Número", "Validade", "Situação", "Ações"].map(
+                  (x) => (
+                    <th className="p-3 font-medium" key={x}>
+                      {x}
+                    </th>
+                  ),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {v.documents.length ? (
+                v.documents.map((d) => (
+                  <tr className="border-b" key={d.id}>
+                    <td className="p-3">{docs[d.type]}</td>
+                    <td>{d.identifier ?? "—"}</td>
+                    <td>{d.expiresAt ? date(d.expiresAt) : "—"}</td>
+                    <td>
+                      <Badge
+                        variant={
+                          d.documentStatus === "EXPIRED"
+                            ? "destructive"
+                            : "outline"
+                        }
+                      >
+                        {docStatus[d.documentStatus]}
+                      </Badge>
+                    </td>
+                    <td>
+                      <Button variant="ghost" onClick={() => setModal(d)}>
+                        Editar
+                      </Button>
+                      <Button variant="ghost" onClick={() => setDeleteDoc(d)}>
+                        Excluir
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="p-4 text-neutral-500" colSpan={5}>
+                    Nenhum documento cadastrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="mt-8">
+        <h2 className="font-semibold">Observações</h2>
+        <p className="mt-3 whitespace-pre-wrap text-sm">{v.notes ?? "—"}</p>
+      </section>
+      {modal !== undefined && (
+        <DocumentModal
+          vehicle={v.id}
+          document={modal ?? undefined}
+          onClose={() => setModal(undefined)}
+          onSaved={() => {
+            setModal(undefined);
+            load();
+          }}
+        />
+      )}
+      <AlertDialog
+        open={deleting}
+        title="Excluir veículo?"
+        description="Esta ação também exclui seus documentos."
+        onCancel={() => setDeleting(false)}
+        onConfirm={() => void remove()}
+      />
+      <AlertDialog
+        open={!!deleteDoc}
+        title="Excluir documento?"
+        description="Esta ação é definitiva."
+        onCancel={() => setDeleteDoc(undefined)}
+        onConfirm={() => void removeDoc()}
+      />
+    </>
+  );
+}
