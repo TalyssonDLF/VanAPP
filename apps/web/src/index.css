@@ -20,47 +20,100 @@ input {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
-.map-student-marker {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  border: 3px solid white;
-  border-radius: 999px;
-  background: #2563eb;
-  color: white;
-  font-weight: 700;
-  box-shadow: 0 2px 8px #0005;
+.student-map-page {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
 }
-.map-van-marker {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  border: 3px solid white;
-  border-radius: 999px;
-  background: #fef3c7;
-  font-size: 24px;
-  box-shadow: 0 2px 8px #0005;
+.student-map-header {
+  flex: none;
+  padding: 1.25rem 1.75rem;
 }
-.map-symbol {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 3px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px #0006;
-  font-size: 19px;
+.student-map-workspace {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  border-top: 1px solid #e5e5e5;
 }
-.map-school {
-  border-radius: 8px;
-  transform: rotate(5deg);
+.student-map-sidebar {
+  width: 320px;
+  flex: 0 0 320px;
+  overflow-y: auto;
+  border-right: 1px solid #e5e5e5;
+  background: white;
 }
-.map-van {
-  border-radius: 8px;
-  width: 42px;
-  height: 34px;
+.student-map-content,
+.student-map-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+.student-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+.student-map-content .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+.student-map-content .leaflet-container img {
+  max-width: none !important;
 }
 .map-custom-marker {
-  background: transparent;
-  border: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+.student-map-marker {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: var(--marker-color);
+  box-shadow: 0 2px 8px #0006;
+  transform: rotate(-45deg);
+  color: white;
+}
+.student-map-marker svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  transform: rotate(45deg);
+  fill: currentColor;
+}
+.student-map-marker .marker-cutout {
+  fill: var(--marker-color);
+}
+.student-map-marker--school {
+  border-radius: 12px 12px 12px 0;
+}
+.student-map-marker--vehicle {
+  border-radius: 14px 14px 14px 0;
+  color: #111827;
+}
+@media (max-width: 767px) {
+  .student-map-page {
+    overflow: auto;
+  }
+  .student-map-workspace {
+    flex-direction: column;
+    overflow: visible;
+  }
+  .student-map-sidebar {
+    width: 100%;
+    max-height: 42vh;
+    flex-basis: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .student-map-content {
+    min-height: 420px;
+  }
 }

@@ -7,15 +7,17 @@ type Marker = {
 };
 type LeafletMap = {
   remove(): void;
+  invalidateSize(options?: object): void;
   fitBounds(points: [number, number][], options?: object): void;
   flyTo(point: [number, number], zoom: number): void;
   setView(point: [number, number], zoom: number): void;
 };
+type DivIcon = unknown;
 type Leaflet = {
   map(element: HTMLElement): LeafletMap;
   tileLayer(url: string, options: object): { addTo(map: LeafletMap): void };
   marker(point: [number, number], options?: object): Marker;
-  divIcon(options: object): unknown;
+  divIcon(options: object): DivIcon;
 };
 declare global {
   interface Window {
@@ -46,4 +48,4 @@ export function loadLeaflet(): Promise<Leaflet> {
   });
   return loading;
 }
-export type { LeafletMap, Marker };
+export type { DivIcon, LeafletMap, Marker };
