@@ -12,6 +12,12 @@ body {
   margin: 0;
   min-width: 320px;
 }
+html { scroll-behavior: smooth; }
+.presentation-grid { background-image: linear-gradient(#e5e5e5 1px,transparent 1px),linear-gradient(90deg,#e5e5e5 1px,transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(to bottom,black,transparent 90%); }
+.presentation-map { background-color:#eef1ec; background-image:linear-gradient(28deg,transparent 47%,#fff 48%,#fff 52%,transparent 53%),linear-gradient(112deg,transparent 47%,#fff 48%,#fff 52%,transparent 53%),linear-gradient(#dce8d9 1px,transparent 1px),linear-gradient(90deg,#dce8d9 1px,transparent 1px); background-size:170px 120px,210px 150px,54px 54px,54px 54px; }
+@media (prefers-reduced-motion: no-preference) { .presentation-float { animation:presentation-in .7s ease-out both; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
+@keyframes presentation-in { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
 button,
 input {
   font: inherit;

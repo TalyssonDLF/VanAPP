@@ -10,6 +10,7 @@ import { VehicleDetail, VehicleForm, VehiclesList } from "@/pages/vehicles";
 import { FinancePage } from "@/pages/finance";
 import { SchoolsList, SchoolForm, SchoolDetail } from "@/pages/schools";
 import { StudentMapPage } from "@/pages/student-map";
+import { PresentationPage } from "@/pages/presentation";
 const routes: [string, string, string?][] = [
   ["alunos", "Alunos", "/alunos/novo"],
   ["alunos/novo", "Novo aluno"],
@@ -58,6 +59,7 @@ const routes: [string, string, string?][] = [
 export default function App() {
   return (
     <Routes>
+      <Route path="apresentacao" element={<PresentationPage />} />
       <Route element={<PublicRoute />}>
         <Route path="login" element={<LoginPage />} />
         <Route path="cadastro" element={<RegisterPage />} />
