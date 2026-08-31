@@ -69,7 +69,7 @@ input {
   border: 0 !important;
   background: transparent !important;
 }
-.map-marker {
+.student-map-marker {
   display: grid;
   width: 100%;
   height: 100%;
@@ -81,19 +81,20 @@ input {
   transform: rotate(-45deg);
   color: white;
 }
-.map-marker svg {
-  width: 52%;
-  height: 52%;
+.student-map-marker svg {
+  display: block;
+  width: 20px;
+  height: 20px;
   transform: rotate(45deg);
   fill: currentColor;
 }
-.map-marker .marker-cutout {
+.student-map-marker .marker-cutout {
   fill: var(--marker-color);
 }
-.map-school {
+.student-map-marker--school {
   border-radius: 12px 12px 12px 0;
 }
-.map-van {
+.student-map-marker--vehicle {
   border-radius: 14px 14px 14px 0;
   color: #111827;
 }

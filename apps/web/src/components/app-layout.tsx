@@ -89,7 +89,7 @@ export function AppLayout() {
     nav("/login", { replace: true });
   }
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-dvh overflow-hidden bg-white">
       <div
         className={cn(
           "fixed inset-0 z-30 bg-black/20 lg:hidden",
@@ -143,8 +143,8 @@ export function AppLayout() {
           ))}
         </nav>
       </aside>
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center border-b border-neutral-200 bg-white px-4 sm:px-6">
+      <div className="flex h-full min-w-0 flex-col lg:pl-60">
+        <header className="z-20 flex h-14 shrink-0 items-center border-b border-neutral-200 bg-white px-4 sm:px-6">
           <Button
             variant="ghost"
             className="mr-3 px-2 lg:hidden"
@@ -210,9 +210,10 @@ export function AppLayout() {
         </header>
         <main
           className={cn(
-            "mx-auto max-w-7xl p-5 sm:p-7",
-            location.pathname === "/rotas/mapa" &&
-              "h-[calc(100vh-3.5rem)] min-h-0 max-w-none p-0 sm:p-0",
+            "min-h-0 min-w-0 flex-1",
+            location.pathname === "/rotas/mapa"
+              ? "w-full overflow-hidden"
+              : "mx-auto w-full max-w-7xl overflow-y-auto p-5 sm:p-7",
           )}
         >
           <Outlet />

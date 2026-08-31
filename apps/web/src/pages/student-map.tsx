@@ -11,10 +11,34 @@ import {
   type StudentMapItem,
   type StudentMapResponse,
 } from "@/lib/api/resources";
-import { loadLeaflet, type LeafletMap, type Marker } from "@/lib/leaflet";
+import {
+  loadLeaflet,
+  type DivIcon,
+  type LeafletMap,
+  type Marker,
+} from "@/lib/leaflet";
 import { toast } from "sonner";
+export const toValidCoordinate = (
+  value: unknown,
+  limit: 90 | 180,
+): number | null => {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) && Math.abs(coordinate) <= limit
+    ? coordinate
+    : null;
+};
+const coordinates = (
+  latitude: unknown,
+  longitude: unknown,
+): [number, number] | null => {
+  const lat = toValidCoordinate(latitude, 90);
+  const lng = toValidCoordinate(longitude, 180);
+  return lat === null || lng === null ? null : [lat, lng];
+};
 export const isStudentLocated = (s: StudentMapItem) =>
-  valid(s.addressDetails?.latitude, s.addressDetails?.longitude);
+  coordinates(s.addressDetails?.latitude, s.addressDetails?.longitude) !== null;
 export const locationReason = (s: StudentMapItem) =>
   !s.addressDetails
     ? "Sem endereço"
@@ -23,11 +47,7 @@ export const locationReason = (s: StudentMapItem) =>
       : s.addressDetails.geocodingStatus === "PENDING"
         ? "Aguardando geocoding"
         : "Coordenadas inválidas";
-const valid = (a?: number | null, b?: number | null) =>
-  Number.isFinite(a) &&
-  Number.isFinite(b) &&
-  Math.abs(a!) <= 90 &&
-  Math.abs(b!) <= 180;
+const valid = (a?: unknown, b?: unknown) => coordinates(a, b) !== null;
 const esc = (v: string) =>
   v.replace(
     /[&<>'"]/g,
@@ -233,28 +253,39 @@ function Summary({ n, t }: { n: number; t: string }) {
     </div>
   );
 }
-const markerSvg = {
-  student:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21c.5-5 2.8-7 7-7s6.5 2 7 7z"/></svg>',
-  school:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-6 9 6v10H3z"/><path class="marker-cutout" d="M7 11h3v3H7zm7 0h3v3h-3zm-4 5h4v4h-4z"/></svg>',
-  van: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13c2 0 3 1 4 4l1 4v4h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H2V8a2 2 0 0 1 1-2z"/><path class="marker-cutout" d="M5 8h5v4H5zm7 0h4c1 0 1.5 1 2 4h-6z"/></svg>',
-};
-function icon(
+const STUDENT_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21c.5-5 2.8-7 7-7s6.5 2 7 7z"/></svg>';
+const SCHOOL_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-6 9 6v10H3z"/><path class="marker-cutout" d="M7 11h3v3H7zm7 0h3v3h-3zm-4 5h4v4h-4z"/></svg>';
+const VEHICLE_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h13c2 0 3 1 4 4l1 4v4h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H2V8a2 2 0 0 1 1-2z"/><path class="marker-cutout" d="M5 8h5v4H5zm7 0h4c1 0 1.5 1 2 4h-6z"/></svg>';
+function createIcon(
   L: Awaited<ReturnType<typeof loadLeaflet>>,
   color: string,
-  kind: keyof typeof markerSvg,
-) {
+  kind: "student" | "school" | "vehicle",
+  svg: string,
+  size: number,
+): DivIcon {
   const safeColor = /^#[0-9a-f]{3,8}$/i.test(color) ? color : "#475569";
-  const size = kind === "student" ? 36 : kind === "school" ? 44 : 46;
   return L.divIcon({
     className: `map-custom-marker map-${kind}-icon`,
-    html: `<span class="map-marker map-${kind}" style="--marker-color:${safeColor}">${markerSvg[kind]}</span>`,
+    html: `<span class="student-map-marker student-map-marker--${kind}" style="--marker-color:${safeColor}">${svg}</span>`,
     iconSize: [size, size + 8],
     iconAnchor: [size / 2, size + 8],
     popupAnchor: [0, -size - 4],
   });
 }
+export const createStudentIcon = (
+  L: Awaited<ReturnType<typeof loadLeaflet>>,
+  color: string,
+): DivIcon => createIcon(L, color, "student", STUDENT_SVG, 36);
+export const createSchoolIcon = (
+  L: Awaited<ReturnType<typeof loadLeaflet>>,
+  color: string,
+): DivIcon => createIcon(L, color, "school", SCHOOL_SVG, 44);
+export const createVehicleIcon = (
+  L: Awaited<ReturnType<typeof loadLeaflet>>,
+): DivIcon => createIcon(L, "#f59e0b", "vehicle", VEHICLE_SVG, 46);
 function Map({
   students,
   schools,
@@ -264,7 +295,8 @@ function Map({
   schools: MapSchool[];
   vehicle: MapVehicle | null;
 }) {
-  const ref = useRef<HTMLDivElement>(null),
+  const wrapperRef = useRef<HTMLDivElement>(null),
+    mapElementRef = useRef<HTMLDivElement>(null),
     map = useRef<LeafletMap | null>(null),
     markers = useRef<Marker[]>([]);
   useEffect(() => {
@@ -272,63 +304,82 @@ function Map({
     let observer: ResizeObserver | undefined;
     void loadLeaflet()
       .then((L) => {
-        if (!active || !ref.current) return;
-        const m = L.map(ref.current);
+        if (!active || !mapElementRef.current || !wrapperRef.current) return;
+        const m = L.map(mapElementRef.current);
         map.current = m;
         observer = new ResizeObserver(() => {
           window.requestAnimationFrame(() => m.invalidateSize({ pan: false }));
         });
-        observer.observe(ref.current);
+        observer.observe(wrapperRef.current);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "&copy; OpenStreetMap contributors",
         }).addTo(m);
         const points: [number, number][] = [];
         markers.current = [];
-        if (vehicle && valid(vehicle.startLatitude, vehicle.startLongitude)) {
-          const p: [number, number] = [
-            vehicle.startLatitude!,
-            vehicle.startLongitude!,
-          ];
+        const vehiclePoint = vehicle
+          ? coordinates(vehicle.startLatitude, vehicle.startLongitude)
+          : null;
+        let vehicleMarkersCreated = 0;
+        let schoolMarkersCreated = 0;
+        let studentMarkersCreated = 0;
+        if (vehicle && vehiclePoint) {
+          const p = vehiclePoint;
           points.push(p);
           markers.current.push(
-            L.marker(p, { icon: icon(L, "#f59e0b", "van") })
+            L.marker(p, { icon: createVehicleIcon(L) })
               .addTo(m)
               .bindPopup(
                 `<strong>🚐 ${esc(`${vehicle.brand} ${vehicle.model}`)}</strong><br>Ponto inicial<br>${esc([vehicle.startStreet, vehicle.startNumber].filter(Boolean).join(", "))}${vehicle.startNeighborhood ? `<br>${esc(vehicle.startNeighborhood)}` : ""}${vehicle.defaultDriver ? `<br>Motorista: ${esc(vehicle.defaultDriver.name)}` : ""}`,
               ),
           );
+          vehicleMarkersCreated += 1;
         }
         schools
           .filter((s) => valid(s.latitude, s.longitude))
           .forEach((s) => {
-            const p: [number, number] = [s.latitude!, s.longitude!];
+            const p = coordinates(s.latitude, s.longitude)!;
             points.push(p);
             markers.current.push(
-              L.marker(p, { icon: icon(L, s.mapColor, "school") })
+              L.marker(p, { icon: createSchoolIcon(L, s.mapColor) })
                 .addTo(m)
                 .bindPopup(
                   `<strong>🏫 ${esc(s.name)}</strong><br>${esc([s.street, s.number].filter(Boolean).join(", "))}<br>${esc(s.neighborhood ?? "")}<br>${s.studentCount} alunos vinculados<br><a href="/escolas/${encodeURIComponent(s.id)}">Ver escola</a>`,
                 ),
             );
+            schoolMarkersCreated += 1;
           });
         students.filter(isStudentLocated).forEach((s) => {
-          const p: [number, number] = [
-              s.addressDetails!.latitude!,
-              s.addressDetails!.longitude!,
-            ],
+          const p = coordinates(
+              s.addressDetails?.latitude,
+              s.addressDetails?.longitude,
+            )!,
             color = s.school?.mapColor ?? "#475569";
           points.push(p);
           markers.current.push(
-            L.marker(p, { icon: icon(L, color, "student") })
+            L.marker(p, { icon: createStudentIcon(L, color) })
               .addTo(m)
               .bindPopup(
                 `<strong>👤 ${esc(s.name)}</strong><br>${esc(s.address ?? "")}<br>${esc(s.addressDetails?.neighborhood ?? "")}${s.school ? `<br>🏫 ${esc(s.school.name)}` : ""}<br><a href="/alunos/${encodeURIComponent(s.id)}">Ver aluno</a>`,
               ),
           );
+          studentMarkersCreated += 1;
         });
-        if (points.length)
-          m.fitBounds(points, { padding: [35, 35], maxZoom: 16 });
+        if (import.meta.env.DEV) {
+          console.debug("[StudentMap diagnostics]", {
+            studentsReceived: students.length,
+            studentsWithCoordinates: studentMarkersCreated,
+            studentMarkersCreated,
+            schoolsReceived: schools.length,
+            schoolsWithCoordinates: schoolMarkersCreated,
+            schoolMarkersCreated,
+            vehicleWithCoordinates: vehiclePoint !== null,
+            vehicleMarkersCreated,
+          });
+        }
+        if (points.length > 1)
+          m.fitBounds(points, { padding: [40, 40], maxZoom: 16 });
+        else if (points.length === 1) m.setView(points[0], 16);
         else m.setView([-14.2, -51.9], 4);
       })
       .catch(() => toast.error("Não foi possível carregar o Leaflet."));
@@ -340,7 +391,7 @@ function Map({
     };
   }, [students, schools, vehicle]);
   return (
-    <div className="student-map-canvas">
+    <div ref={wrapperRef} className="student-map-canvas">
       {!students.some(isStudentLocated) &&
         !schools.some((s) => valid(s.latitude, s.longitude)) &&
         !valid(vehicle?.startLatitude, vehicle?.startLongitude) && (
@@ -352,7 +403,7 @@ function Map({
           </div>
         )}
       <div
-        ref={ref}
+        ref={mapElementRef}
         className="absolute inset-0"
         aria-label="Mapa de alunos, escolas e vans"
       />
