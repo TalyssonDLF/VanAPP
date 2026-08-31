@@ -87,6 +87,20 @@ export function StudentMapPage() {
       () => data?.schools.filter((s) => !schoolId || s.id === schoolId) ?? [],
       [data, schoolId],
     );
+  useEffect(() => {
+    if (!import.meta.env.DEV || !data) return;
+    console.debug("[StudentMap]", {
+      studentsLoaded: students.length,
+      studentsWithCoordinates: students.filter(isStudentLocated).length,
+      schoolsWithCoordinates: schools.filter((school) =>
+        valid(school.latitude, school.longitude),
+      ).length,
+      vehicleHasStartPoint: valid(
+        data.selectedVehicle?.startLatitude,
+        data.selectedVehicle?.startLongitude,
+      ),
+    });
+  }, [data, schools, students]);
   if (!data)
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
